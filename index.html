@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROV Video Vision System</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:  #020b18;
+      --bg-mid:   #061a2e;
+      --bg-card:  #0a2540;
+      --bg-panel: #0d2d4a;
+      --teal:     #00d4aa;
+      --blue:     #0088ff;
+      --cyan:     #00b4d8;
+      --text:     #d8f0ff;
+      --muted:    #6aaecc;
+      --border:   #1a4a6e;
+      --hazard:   #ff6b35;
+      --safe:     #00e5a0;
+      --warn:     #ffd166;
+      --purple:   #a78bfa;
+    }
+
+    body {
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    header {
+      background: linear-gradient(180deg, #061a2e 0%, #020b18 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-bubble {
+      width: 42px; height: 42px;
+      background: radial-gradient(circle at 35% 35%, #00ffcc, #008866);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 0 16px rgba(0,212,170,0.4);
+    }
+    .logo h1 { font-size: 17px; color: var(--teal); letter-spacing: 4px; text-transform: uppercase; }
+    .logo p  { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+    .hud { display: flex; gap: 26px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+    .hud-item { display: flex; align-items: center; gap: 7px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); animation: pulse 2.2s ease-in-out infinite; }
+    .dot.idle  { background: #335; animation: none; }
+    .dot.busy  { background: var(--warn); animation: pulse 0.8s ease-in-out infinite; }
+    .dot.error { background: #ff4444; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* ── WRAPPERS ─────────────────────────────────────────── */
+    .page-wrap {
+      flex: 1;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 22px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    /* ── PANEL ───────────────────────────────────────────── */
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel-head {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 10px; letter-spacing: 2.5px; color: var(--cyan);
+      text-transform: uppercase;
+    }
+    .panel-head .badge {
+      margin-left: auto;
+      background: rgba(0,212,170,0.12);
+      border: 1px solid rgba(0,212,170,0.28);
+      color: var(--teal);
+      font-size: 9px; padding: 2px 9px; border-radius: 20px;
+    }
+    .panel-head .badge.purple {
+      background: rgba(167,139,250,0.12);
+      border-color: rgba(167,139,250,0.28);
+      color: var(--purple);
+    }
+    .panel-body { padding: 18px; }
+
+    /* ── SCENARIO CARDS ──────────────────────────────────── */
+    .scenarios-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .scenario-card {
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color .25s, box-shadow .25s, transform .15s;
+      position: relative;
+    }
+    .scenario-card:hover {
+      border-color: var(--muted);
+      transform: translateY(-2px);
+    }
+    .scenario-card.active {
+      border-color: var(--teal);
+      box-shadow: 0 0 20px rgba(0,212,170,0.2);
+    }
+
+    /* Thumbnail */
+    .sc-thumb {
+      position: relative;
+      height: 130px;
+      overflow: hidden;
+      background: var(--bg-mid);
+    }
+    .sc-thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: brightness(0.55) saturate(0.8);
+      transition: filter .3s;
+    }
+    .scenario-card:hover .sc-thumb img,
+    .scenario-card.active .sc-thumb img { filter: brightness(0.7) saturate(1); }
+
+    .sc-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(2,11,24,0.85) 100%);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .sc-badge {
+      align-self: flex-start;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--muted);
+      font-size: 9px; letter-spacing: 1px;
+      padding: 3px 8px; border-radius: 3px;
+    }
+    .sc-play {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 38px; height: 38px;
+      background: rgba(0,212,170,0.85);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .scenario-card:hover .sc-play,
+    .scenario-card.active .sc-play { opacity: 1; }
+
+    .sc-active-tick {
+      position: absolute;
+      top: 8px; right: 8px;
+      background: var(--teal);
+      color: #020b18;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity .2s;
+    }
+    .scenario-card.active .sc-active-tick { opacity: 1; }
+
+    /* Card body */
+    .sc-body { padding: 12px; }
+
+    .sc-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: var(--text);
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .sc-source {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .sc-source a { color: var(--cyan); text-decoration: none; }
+    .sc-source a:hover { text-decoration: underline; }
+
+    .sc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .sc-tag {
+      font-size: 9px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: rgba(0,180,216,0.1);
+      border: 1px solid rgba(0,180,216,0.2);
+      color: var(--cyan);
+    }
+
+    /* ── EXPANDED EXAMPLE AREA ───────────────────────────── */
+    #expandedArea {
+      display: none;
+      padding: 0 18px 18px;
+      animation: fadeIn .3s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+    .expanded-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+
+    /* Video embed */
+    .video-embed-wrap {
+      border-radius: 6px;
+      overflow: hidden;
+      background: #010d1a;
+      border: 1px solid var(--border);
+    }
+    .video-embed-wrap iframe {
+      width: 100%;
+      aspect-ratio: 16/9;
+      display: block;
+      border: none;
+    }
+    .video-meta-bar {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 16px; flex-wrap: wrap;
+      font-size: 10px; color: var(--muted); letter-spacing: 1px;
+    }
+    .video-meta-bar span { display: flex; align-items: center; gap: 5px; }
+
+    /* Mini annotation results */
+    .anno-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    .anno-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 11px 13px;
+    }
+    .anno-card.has-hazard { border-color: rgba(255,107,53,0.4); }
+    .anno-head {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 9px; letter-spacing: 2px; color: var(--cyan);
+      text-transform: uppercase; margin-bottom: 7px;
+    }
+    .anno-icon { font-size: 13px; }
+    .anno-count { margin-left: auto; }
+    .anno-body { font-size: 11px; line-height: 1.6; }
+
+    .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .tag {
+      background: rgba(0,180,216,0.1);
+      border: 1px solid rgba(0,180,216,0.25);
+      color: var(--cyan);
+      padding: 3px 9px; border-radius: 20px; font-size: 10px;
+    }
+    .tag.hazard {
+      background: rgba(255,107,53,0.1);
+      border-color: rgba(255,107,53,0.35);
+      color: var(--hazard);
+    }
+    .tag.safe {
+      background: rgba(0,229,160,0.1);
+      border-color: rgba(0,229,160,0.28);
+      color: var(--safe);
+    }
+
+    .vis-row  { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+    .vis-dots { display: flex; gap: 4px; }
+    .vis-dot  { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--border); }
+    .vis-dot.on-poor     { background: var(--hazard); border-color: var(--hazard); box-shadow: 0 0 5px var(--hazard); }
+    .vis-dot.on-moderate { background: var(--warn);   border-color: var(--warn);   box-shadow: 0 0 5px var(--warn); }
+    .vis-dot.on-good     { background: var(--safe);   border-color: var(--safe);   box-shadow: 0 0 5px var(--safe); }
+    .vis-text { font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+    .vis-poor     { color: var(--hazard); }
+    .vis-moderate { color: var(--warn); }
+    .vis-good     { color: var(--safe); }
+
+    .action-block {
+      border-left: 3px solid var(--blue);
+      padding: 8px 11px;
+      background: rgba(0,136,255,0.07);
+      border-radius: 0 4px 4px 0;
+      font-size: 11px; line-height: 1.6;
+    }
+
+    /* ── MAIN TOOL GRID ──────────────────────────────────── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+    .left-col { display: flex; flex-direction: column; gap: 22px; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 6px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      position: relative;
+      transition: border-color .25s, background .25s;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--teal);
+      background: rgba(0,212,170,0.04);
+    }
+    .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon  { font-size: 38px; margin-bottom: 10px; }
+    .upload-label { font-size: 12px; color: var(--teal); margin-bottom: 4px; letter-spacing: 1px; }
+    .upload-sub   { font-size: 11px; color: var(--muted); }
+
+    .video-preview-wrap {
+      margin-top: 14px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #010d1a;
+    }
+    .video-preview-wrap video {
+      width: 100%; max-height: 190px;
+      display: block; object-fit: contain;
+    }
+    .video-meta {
+      display: flex; justify-content: space-between;
+      padding: 7px 12px;
+      font-size: 10px; color: var(--muted); letter-spacing: 1px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Pipeline steps */
+    .step-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-size: 10px; letter-spacing: 1px; color: var(--muted);
+      border: 1px solid transparent;
+      margin-bottom: 5px;
+      transition: all .3s;
+    }
+    .step-row.active { color: var(--text); border-color: var(--border); background: var(--bg-card); }
+    .step-row.done   { color: var(--safe); }
+    .step-row.fail   { color: var(--hazard); }
+    .step-icon { font-size: 13px; width: 20px; text-align: center; flex-shrink: 0; }
+    .step-spinner {
+      width: 13px; height: 13px;
+      border: 2px solid rgba(0,212,170,0.2);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to{transform:rotate(360deg)} }
+
+    .progress-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--cyan));
+      border-radius: 2px;
+      transition: width .4s ease;
+    }
+
+    /* API controls */
+    .api-section { margin-top: 16px; display: flex; flex-direction: column; gap: 11px; }
+    .field-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 5px; }
+    .api-input {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px; padding: 10px 13px; border-radius: 4px;
+      outline: none; transition: border-color .2s;
+    }
+    .api-input::placeholder { color: #2a5a7a; }
+    .api-input:focus { border-color: var(--teal); }
+
+    .btn-primary {
+      position: relative; overflow: hidden;
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, #006644, #00a878);
+      border: 1px solid var(--teal);
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase;
+      border-radius: 4px; cursor: pointer;
+      transition: background .25s, box-shadow .25s;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #008855, #00c490);
+      box-shadow: 0 0 22px rgba(0,212,170,0.3);
+    }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .scan-line {
+      position: absolute; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      top: -4px; pointer-events: none;
+    }
+    .btn-primary.scanning .scan-line { animation: scanDown 1.4s linear infinite; }
+    @keyframes scanDown { 0%{top:0%} 100%{top:100%} }
+
+    /* Results panel */
+    .results-idle {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 360px; gap: 14px;
+      color: var(--muted); text-align: center;
+    }
+    .results-idle-icon  { font-size: 50px; opacity: 0.18; }
+
+    .sonar-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 360px; gap: 18px;
+    }
+    .sonar { position: relative; width: 72px; height: 72px; }
+    .sonar-ring {
+      position: absolute;
+      border: 2px solid var(--teal); border-radius: 50%;
+      opacity: 0; animation: sonarPulse 2s ease-out infinite;
+    }
+    .sonar-ring:nth-child(2) { animation-delay: 0.65s; }
+    .sonar-ring:nth-child(3) { animation-delay: 1.3s; }
+    @keyframes sonarPulse { 0%{inset:32px;opacity:0.9} 100%{inset:0;opacity:0} }
+    .sonar-core { position: absolute; inset: 30px; background: var(--teal); border-radius: 50%; }
+    .sonar-msg { font-size: 10px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; }
+    .sonar-sub { font-size: 10px; color: #1a4a6a; animation: pulse 1.6s ease-in-out infinite; }
+
+    /* Full result cards */
+    .card-grid { display: flex; flex-direction: column; gap: 13px; }
+    .rcard {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px; padding: 14px;
+      transition: border-color .2s;
+    }
+    .rcard:hover { border-color: #1e6a9a; }
+    .rcard-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 9px; letter-spacing: 2px; color: var(--cyan);
+      text-transform: uppercase; margin-bottom: 9px;
+    }
+    .rcard-icon { font-size: 15px; }
+    .rcard-count { margin-left: auto; }
+    .rcard-body { font-size: 12px; line-height: 1.65; }
+    .rcard.has-hazard { border-color: rgba(255,107,53,0.4); }
+    .action-block {
+      border-left: 3px solid var(--blue);
+      padding: 9px 12px;
+      background: rgba(0,136,255,0.07);
+      border-radius: 0 4px 4px 0;
+      font-size: 12px; line-height: 1.6;
+    }
+
+    .error-card {
+      background: rgba(255,60,60,0.08);
+      border: 1px solid rgba(255,60,60,0.28);
+      color: #ff7070; padding: 16px; border-radius: 6px;
+      font-size: 12px; line-height: 1.7;
+    }
+
+    /* Video fallback when embedding is blocked */
+    .video-fallback {
+      position: relative;
+      aspect-ratio: 16/9;
+      overflow: hidden;
+      border-radius: 4px;
+      background: #010d1a;
+    }
+    .video-fallback img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      filter: brightness(0.5) saturate(0.7);
+      display: block;
+    }
+    .video-fallback-overlay {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 14px;
+      background: rgba(2,11,24,0.5);
+    }
+    .video-fallback-overlay p {
+      font-size: 10px; color: var(--muted); letter-spacing: 1.5px;
+      text-align: center; padding: 0 20px;
+    }
+    .btn-yt {
+      display: flex; align-items: center; gap: 8px;
+      background: #ff0000;
+      color: #fff;
+      border: none; border-radius: 4px;
+      padding: 9px 18px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px; letter-spacing: 1.5px;
+      cursor: pointer; text-decoration: none;
+      transition: background .2s;
+    }
+    .btn-yt:hover { background: #cc0000; }
+
+    /* Video check spinner */
+    .video-checking {
+      aspect-ratio: 16/9;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px;
+      background: #010d1a;
+      border-radius: 4px;
+    }
+    .video-checking-spinner {
+      width: 24px; height: 24px;
+      border: 2px solid rgba(0,212,170,0.2);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    .video-checking p {
+      font-size: 9px; letter-spacing: 2px;
+      color: var(--muted); text-transform: uppercase;
+    }
+
+    /* ── FOOTER ──────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 9px 28px;
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: #1e4a6a; letter-spacing: 1px;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 920px) {
+      .main-grid { grid-template-columns: 1fr; }
+      .scenarios-row { grid-template-columns: 1fr; }
+      .expanded-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-bubble">🤖</div>
+    <div>
+      <h1>ROV Vision</h1>
+      <p>Underwater Video Analysis System · Twelve Labs Pegasus</p>
+    </div>
+  </div>
+  <div class="hud">
+    <div class="hud-item">
+      <div class="dot" id="sysDot"></div>
+      <span id="sysLabel">SYSTEM ONLINE</span>
+    </div>
+    <div class="hud-item">
+      <div class="dot idle" id="apiDot"></div>
+      <span id="apiLabel">API STANDBY</span>
+    </div>
+    <div class="hud-item" id="depthItem" style="display:none">
+      <span>⬇</span><span id="depthVal">— m</span>
+    </div>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+<!-- ══════════ DATABASE EXAMPLES ══════════ -->
+<div class="panel">
+  <div class="panel-head">
+    📚 &nbsp;Video Database — Example Scenarios
+    <span class="badge purple">3 ENVIRONMENTS</span>
+  </div>
+
+  <div class="scenarios-row">
+
+    <!-- CARD 1: Oil Rig -->
+    <div class="scenario-card" id="card-oilrig" onclick="loadScenario('oilrig')">
+      <div class="sc-thumb">
+        <img src="https://img.youtube.com/vi/XxNY2eAp1Qw/hqdefault.jpg" alt="Oil rig ROV inspection">
+        <div class="sc-overlay">
+          <span class="sc-badge">OFFSHORE / SUBSEA</span>
+          <div></div>
+        </div>
+        <div class="sc-play">▶</div>
+        <div class="sc-active-tick">✓</div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-title">⚙️ Oil Rig Inspection</div>
+        <div class="sc-source">
+          Source: <a href="https://www.digitaledgesubsea.com/" target="_blank">Digital Edge Subsea</a>
+          &nbsp;·&nbsp;
+          <a href="https://oceanexplorer.noaa.gov/data/access/access.html" target="_blank">NOAA OER</a>
+        </div>
+        <div class="sc-tags">
+          <span class="sc-tag">jacket structure</span>
+          <span class="sc-tag">corrosion</span>
+          <span class="sc-tag">marine growth</span>
+          <span class="sc-tag">anodes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: Aquaculture -->
+    <div class="scenario-card" id="card-aquaculture" onclick="loadScenario('aquaculture')">
+      <div class="sc-thumb">
+        <img src="https://img.youtube.com/vi/iFMeC3V2Z-s/hqdefault.jpg" alt="Aquaculture fish farm">
+        <div class="sc-overlay">
+          <span class="sc-badge">AQUACULTURE / MARICULTURE</span>
+          <div></div>
+        </div>
+        <div class="sc-play">▶</div>
+        <div class="sc-active-tick">✓</div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-title">🐟 Aquaculture Fish Farm</div>
+        <div class="sc-source">
+          Source: <a href="https://lila.science/datasets/community-fish-detection-dataset/" target="_blank">LILA Community Fish</a>
+          &nbsp;·&nbsp;
+          <a href="https://github.com/open-AIMS/ozfish" target="_blank">OzFish</a>
+        </div>
+        <div class="sc-tags">
+          <span class="sc-tag">Atlantic salmon</span>
+          <span class="sc-tag">sea lice</span>
+          <span class="sc-tag">net pen</span>
+          <span class="sc-tag">feeding</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3: Port / Harbor -->
+    <div class="scenario-card" id="card-port" onclick="loadScenario('port')">
+      <div class="sc-thumb">
+        <img src="https://img.youtube.com/vi/f8yy8_0_y6U/hqdefault.jpg" alt="Port harbor inspection">
+        <div class="sc-overlay">
+          <span class="sc-badge">PORT / HARBOR INFRASTRUCTURE</span>
+          <div></div>
+        </div>
+        <div class="sc-play">▶</div>
+        <div class="sc-active-tick">✓</div>
+      </div>
+      <div class="sc-body">
+        <div class="sc-title">🏗️ Port &amp; Harbor Inspection</div>
+        <div class="sc-source">
+          Source: <a href="https://seagrant.mit.edu/auvlab-datasets-marine-perception-1/" target="_blank">MIT Sea Grant AUV Lab</a>
+          &nbsp;·&nbsp;
+          <a href="https://www.youtube.com/watch?v=f8yy8_0_y6U" target="_blank">VideoRay</a>
+        </div>
+        <div class="sc-tags">
+          <span class="sc-tag">concrete piling</span>
+          <span class="sc-tag">biofouling</span>
+          <span class="sc-tag">debris</span>
+          <span class="sc-tag">spalling</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /scenarios-row -->
+
+  <!-- EXPANDED ANNOTATION AREA -->
+  <div id="expandedArea">
+    <div class="expanded-grid">
+
+      <!-- Left: video (checking → iframe or fallback) -->
+      <div>
+        <div class="video-embed-wrap" id="videoSlot">
+          <!-- replaced by JS: checking spinner → iframe or fallback -->
+          <div class="video-checking">
+            <div class="video-checking-spinner"></div>
+            <p>Checking video…</p>
+          </div>
+        </div>
+        <div class="video-meta-bar" id="videoMetaBar">
+          <span>📡 —</span><span>📍 —</span><span>🎥 —</span>
+        </div>
+      </div>
+
+      <!-- Right: annotation cards -->
+      <div class="anno-grid" id="annoGrid"></div>
+
+    </div>
+  </div>
+
+</div><!-- /database panel -->
+
+
+<!-- ══════════ MAIN TOOL ══════════ -->
+<div class="main-grid">
+
+  <!-- LEFT: Upload + Pipeline -->
+  <div class="left-col">
+
+    <div class="panel">
+      <div class="panel-head">📹 &nbsp;Custom Video Input</div>
+      <div class="panel-body">
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="fileInput" accept="video/*">
+          <div class="upload-icon">🌊</div>
+          <div class="upload-label">Upload Your Own Video</div>
+          <div class="upload-sub">Drag &amp; drop or click · MP4 / MOV / AVI / WEBM</div>
+        </div>
+        <div id="videoWrap" style="display:none">
+          <div class="video-preview-wrap">
+            <video id="videoEl" controls muted></video>
+            <div class="video-meta">
+              <span id="videoName">—</span>
+              <span id="videoSize">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="controlPanel" style="display:none">
+      <div class="panel-head">⚙️ &nbsp;Analysis Pipeline
+        <span class="badge" id="pipelineBadge">IDLE</span>
+      </div>
+      <div class="panel-body">
+
+        <div id="stepsWrap">
+          <div class="step-row" id="step1"><span class="step-icon" id="step1icon">1</span><span>Create / verify index</span></div>
+          <div class="step-row" id="step2"><span class="step-icon" id="step2icon">2</span><span>Upload video to Twelve Labs</span></div>
+          <div class="step-row" id="step3"><span class="step-icon" id="step3icon">3</span><span id="step3label">Index video &amp; extract features</span></div>
+          <div class="step-row" id="step4"><span class="step-icon" id="step4icon">4</span><span>Generate ROV analysis</span></div>
+          <div class="progress-wrap" id="progressWrap" style="display:none">
+            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="api-section">
+          <div>
+            <div class="field-label">TWELVE LABS API KEY</div>
+            <input type="password" class="api-input" id="apiKey" placeholder="tlk_…">
+          </div>
+          <button class="btn-primary" id="analyzeBtn" disabled onclick="runPipeline()">
+            <div class="scan-line"></div>
+            ⚡&nbsp; INITIATE VIDEO ANALYSIS
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div class="panel">
+    <div class="panel-head">🎯 &nbsp;Vision Analysis Output
+      <span class="badge" id="liveBadge" style="display:none">LIVE</span>
+    </div>
+    <div class="panel-body" id="resultsBody">
+      <div class="results-idle">
+        <div class="results-idle-icon">📹</div>
+        <div style="font-size:12px;color:var(--muted);letter-spacing:1px">Select a scenario above or upload your own video</div>
+        <div style="font-size:10px;color:#1a4a6a;letter-spacing:1px">Real-time analysis via Twelve Labs Pegasus API</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-grid -->
+
+</div><!-- /page-wrap -->
+
+<footer>
+  <span>ROV VISION SYSTEM &nbsp;·&nbsp; TWELVE LABS PEGASUS + NOAA / LILA / MIT DATASETS</span>
+  <span id="tsDisplay">—</span>
+  <span>FISHBYTES RESEARCH</span>
+</footer>
+
+<script>
+  /* ══════════════════════════════════════════
+     SCENARIO DATA
+  ══════════════════════════════════════════ */
+  const SCENARIOS = {
+    oilrig: {
+      // Candidates tried in order; first embeddable wins
+      videoIds: ['XxNY2eAp1Qw', '0TyewyN9lNM', 'zZjeCb8rfWY', '0PS8DD8boWE'],
+      thumbId:  'XxNY2eAp1Qw',
+      ytLink:   'https://www.youtube.com/watch?v=XxNY2eAp1Qw',
+      meta: ['📡 Offshore Platform · Gulf of Mexico', '📍 Depth: 42 m', '🎥 ROV: Work-class ROV · HD 1080p'],
+      annotation: {
+        scene_description: 'ROV footage of an offshore oil platform jacket structure at approximately 42 m depth. Significant marine biogrowth coats tubular members and cross-bracing; areas of active corrosion and partial anode depletion visible on brace joints.',
+        detected_objects: ['platform jacket leg', 'tubular cross-brace', 'barnacle growth', 'corrosion patch', 'sacrificial zinc anode', 'mooring chain segment', 'sediment cloud', 'drill pipe riser'],
+        hazard_flags: ['active corrosion detected at brace joint B-7 — wall thickness suspect', 'anode depletion >40% on jacket leg section 3 — replacement recommended', 'thruster-induced sediment plume reducing visibility near seabed'],
+        visibility_estimate: 'moderate',
+        recommended_action: 'Conduct ultrasonic thickness measurement at corroded brace joint B-7. Schedule sacrificial anode replacement during next maintenance window. Ascend 3 m to clear sediment before proceeding to next inspection node.'
+      }
+    },
+    aquaculture: {
+      videoIds: ['iFMeC3V2Z-s', 'Vw2qH2sCJZ8', 'wufmy7ppth0'],
+      thumbId:  'iFMeC3V2Z-s',
+      ytLink:   'https://www.youtube.com/watch?v=iFMeC3V2Z-s',
+      meta: ['📡 Open-Net Salmon Pen · Parry Sound, Ontario', '📍 Depth: 12 m', '🎥 Deep Trekker DTG3 ROV'],
+      annotation: {
+        scene_description: 'Interior of an open-net Atlantic salmon pen at 12 m depth. Dense aggregation of sub-adult Atlantic salmon actively feeding; net pen wall and mooring lines visible. Feeding pellets dispersed throughout water column.',
+        detected_objects: ['Atlantic salmon (Salmo salar)', 'net pen wall mesh', 'feeding pellets', 'sea lice (Lepeophtheirus salmonis)', 'waste feed particles', 'pen mooring line', 'biofouling on lower net panel', 'aggregated fish school'],
+        hazard_flags: ['sea lice infestation detected on multiple fish — treatment threshold approaching', 'net fouling on lower panel reducing dissolved oxygen flow and circulation'],
+        visibility_estimate: 'good',
+        recommended_action: 'Initiate sea lice count protocol on minimum 20 randomly sampled fish. Schedule net cleaning on fouled lower panel within 48 hours. Fish behavior and coloration appear normal — continue routine behavioral monitoring pass.'
+      }
+    },
+    port: {
+      // f8yy8_0_y6U has embedding disabled (Error 153) — try alternates
+      videoIds: ['_B7M2EHgZWw', '0PS8DD8boWE', 'XxNY2eAp1Qw', 'f8yy8_0_y6U'],
+      thumbId:  'f8yy8_0_y6U',
+      ytLink:   'https://www.youtube.com/watch?v=f8yy8_0_y6U',
+      meta: ['📡 Commercial Quay Inspection · Cartagena, Colombia', '📍 Depth: 9 m', '🎥 VideoRay Pro 4 ROV · SD'],
+      annotation: {
+        scene_description: 'Subsea inspection beneath a commercial port quay structure at 9 m depth. Concrete piling foundations show significant biofouling and areas of surface spalling. Sandy seabed with scattered marine debris and silt accumulation.',
+        detected_objects: ['concrete piling', 'dock cross-beam', 'mussel colony', 'macro-algae growth', 'abandoned fishing net', 'silt accumulation', 'wrasse (Labridae)', 'exposed rebar'],
+        hazard_flags: ['entanglement hazard — abandoned net near piling cluster C poses ROV entrapment risk', 'spalling concrete on piling 14 exposing rebar — potential structural compromise'],
+        visibility_estimate: 'moderate',
+        recommended_action: 'Flag piling 14 for immediate structural assessment. Coordinate debris removal operation for abandoned net before next ROV deployment. Capture photogrammetry survey of biofouling extent before scheduled maintenance window.'
+      }
+    }
+  };
+
+  let activeScenario = null;
+  let videoFile = null;
+  let cachedIndexId = null;
+  let running = false;
+  let depthTimer = null;
+  let depthVal = null;
+
+  const TL = 'https://api.twelvelabs.io/v1.3';
+  const INDEX_NAME = 'rov-underwater-vision';
+
+  /* ── Video loader ────────────────────────────────────── */
+  // Plain iframe + always-visible YouTube link underneath.
+  // The YT IFrame Player API requires HTTP/HTTPS and breaks thumbnails
+  // when injected into file:// pages, so we don't use it here.
+  function loadVideoWithFallback(slotId, videoIds, thumbId, ytLink) {
+    const slot = document.getElementById(slotId);
+    const id   = videoIds[0]; // best candidate first
+
+    slot.innerHTML = `
+      <div style="border-radius:4px;overflow:hidden;">
+        <iframe
+          src="https://www.youtube-nocookie.com/embed/${escHtml(id)}?rel=0&modestbranding=1&color=white"
+          allowfullscreen
+          style="width:100%;aspect-ratio:16/9;display:block;border:none;">
+        </iframe>
+        <div style="background:var(--bg-card);border-top:1px solid var(--border);padding:8px 13px;
+                    display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:9px;color:var(--muted);letter-spacing:1.5px">
+            VIDEO BLOCKED? OPEN DIRECTLY ↓
+          </span>
+          <a class="btn-yt" href="${escHtml(ytLink)}" target="_blank" rel="noopener"
+             style="padding:5px 14px;font-size:10px;letter-spacing:1px">
+            ▶ &nbsp;Watch on YouTube
+          </a>
+        </div>
+      </div>`;
+  }
+
+  /* ── Scenario loading ────────────────────────────────── */
+  function loadScenario(key) {
+    // Toggle off if same card clicked again
+    if (activeScenario === key) {
+      activeScenario = null;
+      document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+      document.getElementById('expandedArea').style.display = 'none';
+      document.getElementById('resultsBody').innerHTML = idleHTML();
+      document.getElementById('liveBadge').style.display = 'none';
+      return;
+    }
+
+    activeScenario = key;
+    const s = SCENARIOS[key];
+
+    // Highlight card
+    document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('card-' + key).classList.add('active');
+
+    // Show expanded area with spinner in video slot
+    document.getElementById('expandedArea').style.display = 'block';
+    document.getElementById('expandedArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Video slot cleared — loadVideoWithFallback will fill it immediately
+    document.getElementById('videoSlot').innerHTML = '';
+
+    // Meta bar
+    document.getElementById('videoMetaBar').innerHTML =
+      s.meta.map(m => `<span>${escHtml(m)}</span>`).join('');
+
+    // Render annotations immediately
+    renderAnnoGrid(s.annotation);
+    renderResults(s.annotation, true);
+    document.getElementById('tsDisplay').textContent =
+      'DEMO · ' + new Date().toISOString().replace('T',' ').slice(0,10);
+
+    // Try each video ID via the YT IFrame API; fall back to thumbnail on error 101/150
+    loadVideoWithFallback('videoSlot', s.videoIds, s.thumbId, s.ytLink);
+  }
+
+  function renderAnnoGrid(r) {
+    const haz = r.hazard_flags || [];
+    const objs = r.detected_objects || [];
+
+    const vis   = r.visibility_estimate.toLowerCase();
+    const level = ['poor','moderate','good'].includes(vis) ? vis : 'good';
+    const count = level === 'poor' ? 1 : level === 'moderate' ? 2 : 3;
+    const dots  = [1,2,3].map(n => `<div class="vis-dot ${n<=count?'on-'+level:''}"></div>`).join('');
+
+    document.getElementById('annoGrid').innerHTML = `
+      <div class="anno-card">
+        <div class="anno-head"><span class="anno-icon">🔭</span> Scene</div>
+        <div class="anno-body">${escHtml(r.scene_description)}</div>
+      </div>
+      <div class="anno-card">
+        <div class="anno-head"><span class="anno-icon">🐠</span> Detected Objects
+          <span class="anno-count" style="margin-left:auto;color:var(--teal)">${objs.length}</span>
+        </div>
+        <div class="anno-body">
+          <div class="tag-row">
+            ${objs.map(o=>`<span class="tag">${escHtml(o)}</span>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="anno-card ${haz.length?'has-hazard':''}">
+        <div class="anno-head"><span class="anno-icon">⚠️</span> Hazards
+          <span class="anno-count" style="margin-left:auto;color:${haz.length?'var(--hazard)':'var(--safe)'}">
+            ${haz.length} detected
+          </span>
+        </div>
+        <div class="anno-body">
+          <div class="tag-row">
+            ${haz.length
+              ? haz.map(h=>`<span class="tag hazard">⚠️ ${escHtml(h)}</span>`).join('')
+              : '<span class="tag safe">✓ CLEAR</span>'}
+          </div>
+        </div>
+      </div>
+      <div class="anno-card">
+        <div class="anno-head"><span class="anno-icon">👁️</span> Visibility</div>
+        <div class="anno-body">
+          <div class="vis-row">
+            <div class="vis-dots">${dots}</div>
+            <span class="vis-text vis-${level}">${level.toUpperCase()}</span>
+          </div>
+        </div>
+      </div>
+      <div class="anno-card">
+        <div class="anno-head"><span class="anno-icon">🤖</span> Action</div>
+        <div class="anno-body">
+          <div class="action-block">${escHtml(r.recommended_action)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  /* ── Upload / drag-drop ──────────────────────────────── */
+  const zone      = document.getElementById('uploadZone');
+  const fileInput = document.getElementById('fileInput');
+
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) loadVideo(f);
+    else if (f) alert('Please upload a video file.');
+  });
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) loadVideo(e.target.files[0]); });
+  document.getElementById('apiKey').addEventListener('input', syncBtn);
+
+  function loadVideo(file) {
+    videoFile = file;
+    activeScenario = null;
+    document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('expandedArea').style.display = 'none';
+
+    const videoEl = document.getElementById('videoEl');
+    videoEl.src = URL.createObjectURL(file);
+    document.getElementById('videoName').textContent =
+      file.name.length > 30 ? file.name.slice(0,27)+'…' : file.name;
+    document.getElementById('videoSize').textContent = fmtBytes(file.size);
+    document.getElementById('videoWrap').style.display = 'block';
+    document.getElementById('controlPanel').style.display = 'block';
+
+    zone.innerHTML = `
+      <input type="file" id="fileInput" accept="video/*">
+      <div class="upload-icon">🎬</div>
+      <div class="upload-label" style="color:var(--teal)">${escHtml(file.name.length>32?file.name.slice(0,29)+'…':file.name)}</div>
+      <div class="upload-sub">${fmtBytes(file.size)} · click to replace</div>
+    `;
+    document.getElementById('fileInput').addEventListener('change', e => {
+      if (e.target.files[0]) loadVideo(e.target.files[0]);
+    });
+
+    resetSteps();
+    syncBtn();
+    document.getElementById('liveBadge').style.display = 'none';
+    document.getElementById('resultsBody').innerHTML = idleHTML('Video loaded — enter API key and analyze');
+
+    depthVal = +(Math.random()*90+5).toFixed(1);
+    document.getElementById('depthItem').style.display = 'flex';
+    document.getElementById('depthVal').textContent = depthVal + ' m';
+    clearInterval(depthTimer);
+    depthTimer = setInterval(() => {
+      depthVal = +(depthVal + (Math.random()-0.5)*0.5).toFixed(1);
+      document.getElementById('depthVal').textContent = depthVal + ' m';
+    }, 2000);
+  }
+
+  function syncBtn() {
+    const key = document.getElementById('apiKey').value.trim();
+    document.getElementById('analyzeBtn').disabled = !(videoFile && key && !running);
+  }
+
+  /* ── Twelve Labs Pipeline ────────────────────────────── */
+  async function runPipeline() {
+    const key = document.getElementById('apiKey').value.trim();
+    if (!videoFile || !key) return;
+
+    running = true; syncBtn();
+    setApiStatus('busy', 'PIPELINE ACTIVE');
+    document.getElementById('pipelineBadge').textContent = 'RUNNING';
+    document.getElementById('analyzeBtn').classList.add('scanning');
+    document.getElementById('analyzeBtn').textContent = '⏳  ANALYZING…';
+    document.getElementById('progressWrap').style.display = 'block';
+    showLoader('Initializing pipeline…', '');
+
+    try {
+      setStep(1,'active'); setProgress(5);
+      const indexId = await getOrCreateIndex(key);
+      cachedIndexId = indexId;
+      setStep(1,'done'); setProgress(15);
+
+      setStep(2,'active');
+      showLoader('Uploading video…', 'This may take a moment for large files');
+      const taskId = await uploadVideo(key, indexId);
+      setStep(2,'done'); setProgress(35);
+
+      setStep(3,'active');
+      showLoader('Indexing video…', 'Twelve Labs is extracting visual features');
+      const videoId = await pollTask(key, taskId, pct => {
+        setProgress(35 + Math.round(pct * 0.45));
+        document.getElementById('step3label').textContent =
+          `Index video & extract features (${Math.round(pct)}%)`;
+      });
+      setStep(3,'done'); setProgress(82);
+
+      setStep(4,'active');
+      showLoader('Generating ROV analysis…', 'Pegasus is reasoning over footage');
+      const result = await generateAnalysis(key, videoId);
+      setStep(4,'done'); setProgress(100);
+
+      renderResults(result, false);
+      setApiStatus('online', 'ANALYSIS COMPLETE');
+      document.getElementById('liveBadge').style.display = 'inline';
+      document.getElementById('pipelineBadge').textContent = 'COMPLETE';
+      document.getElementById('tsDisplay').textContent =
+        new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
+
+    } catch(e) {
+      showError(e.message);
+      setApiStatus('error', 'PIPELINE ERROR');
+      document.getElementById('pipelineBadge').textContent = 'FAILED';
+    } finally {
+      running = false;
+      const btn = document.getElementById('analyzeBtn');
+      btn.classList.remove('scanning');
+      btn.innerHTML = '<div class="scan-line"></div>⚡&nbsp; RE-ANALYZE';
+      syncBtn();
+    }
+  }
+
+  async function tlFetch(key, method, path, body) {
+    const opts = { method, headers: {'x-api-key':key,'Content-Type':'application/json'} };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(TL + path, opts);
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      throw new Error(e?.message || e?.error || `HTTP ${res.status} on ${path}`);
+    }
+    return res.json();
+  }
+
+  async function getOrCreateIndex(key) {
+    if (cachedIndexId) return cachedIndexId;
+    try {
+      const list = await tlFetch(key, 'GET', '/indexes?page=1&page_limit=50');
+      const ex   = (list.data||[]).find(ix => ix.name === INDEX_NAME);
+      if (ex) return ex._id;
+    } catch(_) {}
+    const c = await tlFetch(key, 'POST', '/indexes', {
+      name: INDEX_NAME,
+      models: [{ name: 'pegasus1.2', options: ['visual','audio'] }]
+    });
+    return c._id;
+  }
+
+  async function uploadVideo(key, indexId) {
+    const form = new FormData();
+    form.append('index_id', indexId);
+    form.append('video_file', videoFile, videoFile.name);
+    const res = await fetch(TL + '/tasks', {
+      method: 'POST',
+      headers: { 'x-api-key': key },
+      body: form
+    });
+    if (!res.ok) {
+      const e = await res.json().catch(()=>({}));
+      throw new Error(e?.message || e?.error || `Upload failed: HTTP ${res.status}`);
+    }
+    return (await res.json())._id;
+  }
+
+  async function pollTask(key, taskId, onPct) {
+    const MAX = 20*60*1000, TICK = 4000;
+    const t0  = Date.now();
+    while (Date.now()-t0 < MAX) {
+      await sleep(TICK);
+      const task = await tlFetch(key, 'GET', `/tasks/${taskId}`);
+      const s    = (task.status||'').toLowerCase();
+      if (s === 'ready') {
+        const vid = task.video_id || task.video?._id;
+        if (!vid) throw new Error('Task ready but no video_id in response.');
+        return vid;
+      }
+      if (s === 'failed') throw new Error(`Indexing failed: ${task.error?.message||'unknown'}`);
+      onPct(Math.min(95, ((Date.now()-t0)/(3*60*1000))*100));
+    }
+    throw new Error('Timed out waiting for video indexing (20 min limit).');
+  }
+
+  async function generateAnalysis(key, videoId) {
+    const prompt = `You are an underwater ROV (remotely operated vehicle) vision system.
+Analyze this video footage and respond ONLY with valid JSON — no markdown, no preamble. Use exactly this structure:
+{
+  "scene_description": "1-2 sentence plain English description of the underwater scene",
+  "detected_objects": ["list", "of", "objects", "creatures", "or", "structures", "seen"],
+  "hazard_flags": ["hazards or risks — empty array if none"],
+  "visibility_estimate": "poor or moderate or good",
+  "recommended_action": "what the ROV should do next based on the footage"
+}`;
+    const res = await tlFetch(key, 'POST', '/generate', { video_id: videoId, prompt });
+    const raw = (res.data || res.text || '').trim();
+    if (!raw) throw new Error('Twelve Labs returned empty generation response.');
+    try {
+      return JSON.parse(raw.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'').trim());
+    } catch {
+      throw new Error('Could not parse JSON from generation:\n' + raw);
+    }
+  }
+
+  /* ── Render full results ─────────────────────────────── */
+  function renderResults(r, isDemo) {
+    const vis   = (r.visibility_estimate||'good').toLowerCase();
+    const level = ['poor','moderate','good'].includes(vis) ? vis : 'good';
+    const count = level==='poor' ? 1 : level==='moderate' ? 2 : 3;
+    const dots  = [1,2,3].map(n=>`<div class="vis-dot ${n<=count?'on-'+level:''}"></div>`).join('');
+    const objs  = r.detected_objects || [];
+    const haz   = r.hazard_flags || [];
+
+    const objTags = objs.map(o=>`<span class="tag">🐠 ${escHtml(o)}</span>`).join('') ||
+      `<span style="color:var(--muted);font-size:11px">None detected</span>`;
+    const hazTags = haz.length
+      ? haz.map(h=>`<span class="tag hazard">⚠️ ${escHtml(h)}</span>`).join('')
+      : `<span class="tag safe">✓ NO HAZARDS DETECTED</span>`;
+
+    const demoBadge = isDemo
+      ? `<span style="margin-left:8px;font-size:9px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:var(--purple);padding:2px 8px;border-radius:10px;letter-spacing:1px">DEMO</span>`
+      : '';
+
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="card-grid">
+
+        <div class="rcard">
+          <div class="rcard-head"><span class="rcard-icon">🔭</span> Scene Description${demoBadge}</div>
+          <div class="rcard-body">${escHtml(r.scene_description||'—')}</div>
+        </div>
+
+        <div class="rcard">
+          <div class="rcard-head">
+            <span class="rcard-icon">🐠</span> Detected Objects
+            <span class="rcard-count" style="color:var(--teal)">${objs.length} found</span>
+          </div>
+          <div class="rcard-body"><div class="tag-row">${objTags}</div></div>
+        </div>
+
+        <div class="rcard ${haz.length?'has-hazard':''}">
+          <div class="rcard-head">
+            <span class="rcard-icon">⚠️</span> Hazard Flags
+            <span class="rcard-count" style="color:${haz.length?'var(--hazard)':'var(--safe)'}">
+              ${haz.length} detected
+            </span>
+          </div>
+          <div class="rcard-body"><div class="tag-row">${hazTags}</div></div>
+        </div>
+
+        <div class="rcard">
+          <div class="rcard-head"><span class="rcard-icon">👁️</span> Visibility Estimate</div>
+          <div class="rcard-body">
+            <div class="vis-row">
+              <div class="vis-dots">${dots}</div>
+              <span class="vis-text vis-${level}">${level.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="rcard">
+          <div class="rcard-head"><span class="rcard-icon">🤖</span> Recommended Action</div>
+          <div class="rcard-body">
+            <div class="action-block">${escHtml(r.recommended_action||'—')}</div>
+          </div>
+        </div>
+
+      </div>`;
+  }
+
+  /* ── UI helpers ──────────────────────────────────────── */
+  function idleHTML(msg) {
+    return `<div class="results-idle">
+      <div class="results-idle-icon">📹</div>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:1px">${msg||'Select a scenario above or upload your own video'}</div>
+      <div style="font-size:10px;color:#1a4a6a;letter-spacing:1px">Real-time analysis via Twelve Labs Pegasus API</div>
+    </div>`;
+  }
+
+  function setApiStatus(state, label) {
+    document.getElementById('apiDot').className = 'dot ' +
+      (state==='busy'?'busy':state==='error'?'error':state==='online'?'':'idle');
+    document.getElementById('apiLabel').textContent = label;
+  }
+
+  function setStep(n, state) {
+    const row  = document.getElementById('step'+n);
+    row.className = 'step-row ' + state;
+    const icon = document.getElementById('step'+n+'icon');
+    if (!icon) return;
+    if (state==='active') {
+      icon.outerHTML = `<div class="step-spinner" id="step${n}icon"></div>`;
+    } else {
+      const el = document.getElementById('step'+n+'icon');
+      if (el) el.outerHTML =
+        `<span class="step-icon" id="step${n}icon">${state==='done'?'✓':state==='fail'?'✗':n}</span>`;
+    }
+  }
+
+  function resetSteps() {
+    for (let i=1;i<=4;i++) {
+      document.getElementById('step'+i).className = 'step-row';
+      const icon = document.getElementById('step'+i+'icon');
+      if (icon) icon.outerHTML = `<span class="step-icon" id="step${i}icon">${i}</span>`;
+    }
+    document.getElementById('step3label').textContent = 'Index video & extract features';
+    setProgress(0);
+    document.getElementById('progressWrap').style.display = 'none';
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progressFill').style.width = pct + '%';
+  }
+
+  function showLoader(msg, sub) {
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="sonar-wrap">
+        <div class="sonar">
+          <div class="sonar-ring"></div><div class="sonar-ring"></div>
+          <div class="sonar-ring"></div><div class="sonar-core"></div>
+        </div>
+        <div class="sonar-msg">${escHtml(msg)}</div>
+        ${sub?`<div class="sonar-sub">${escHtml(sub)}</div>`:''}
+      </div>`;
+  }
+
+  function showError(msg) {
+    document.getElementById('resultsBody').innerHTML = `
+      <div class="error-card">
+        <div style="font-size:15px;margin-bottom:8px">⚠️ Pipeline Failed</div>
+        <div>${escHtml(msg)}</div>
+      </div>`;
+  }
+
+  function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+  function fmtBytes(b) {
+    return b < 1048576 ? (b/1024).toFixed(1)+' KB' : (b/1048576).toFixed(1)+' MB';
+  }
+
+  function escHtml(s) {
+    return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
