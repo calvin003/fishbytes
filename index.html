@@ -3,40 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ROV Video Vision System</title>
+  <title>FishBytes — See the deep, smarter.</title>
+  <meta name="description" content="AI-powered annotation for underwater ROV footage. Upload your dive, get hazards, species, and inspection-ready reports in minutes.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- YOLO detection: TensorFlow.js + COCO-SSD via CDN. Loaded lazily on first analyze. -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg-deep:  #020b18;
-      --bg-mid:   #061a2e;
-      --bg-card:  #0a2540;
-      --bg-panel: #0d2d4a;
-      --teal:     #00d4aa;
-      --blue:     #0088ff;
-      --cyan:     #00b4d8;
-      --text:     #d8f0ff;
-      --muted:    #6aaecc;
-      --border:   #1a4a6e;
-      --hazard:   #ff6b35;
-      --safe:     #00e5a0;
-      --warn:     #ffd166;
-      --purple:   #a78bfa;
+      /* Surfaces */
+      --bg-deep:    #05101c;
+      --bg-mid:     #081827;
+      --bg-card:    #0c2236;
+      --bg-panel:   #0d2940;
+      --bg-elev:    #11304a;
+
+      /* Brand & accents */
+      --teal:       #2dd4bf;
+      --teal-hi:    #5eead4;
+      --teal-glow:  rgba(45,212,191,0.18);
+      --blue:       #60a5fa;
+      --cyan:       #38bdf8;
+
+      /* Text */
+      --text:       #eaf3fb;
+      --text-soft:  #b9cee0;
+      --muted:      #7c9bb7;
+      --muted-soft: #4a6b86;
+
+      /* Borders */
+      --border:     #1c3a59;
+      --border-soft:#16304a;
+
+      /* Status */
+      --hazard:     #fb7c5a;
+      --safe:       #34d399;
+      --warn:       #fbbf24;
+      --purple:     #a78bfa;
+
+      /* Type */
+      --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --font-mono:  'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+      /* Shadows */
+      --shadow-card: 0 1px 0 rgba(255,255,255,0.02) inset, 0 8px 30px rgba(0,0,0,0.35);
+      --shadow-lift: 0 1px 0 rgba(255,255,255,0.04) inset, 0 12px 40px rgba(0,0,0,0.45);
     }
 
+    html, body { height: 100%; }
     body {
-      background: var(--bg-deep);
+      background:
+        radial-gradient(1100px 600px at 50% -120px, rgba(45,212,191,0.10), transparent 60%),
+        radial-gradient(900px 500px at 80% 200px, rgba(56,189,248,0.07), transparent 65%),
+        var(--bg-deep);
       color: var(--text);
-      font-family: 'Courier New', Courier, monospace;
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.6;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* ── HEADER ─────────────────────────────────────────── */
+    a { color: inherit; text-decoration: none; }
+
+    /* ── NAV ─────────────────────────────────────────────── */
     header {
-      background: linear-gradient(180deg, #061a2e 0%, #020b18 100%);
-      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: saturate(140%) blur(12px);
+      -webkit-backdrop-filter: saturate(140%) blur(12px);
+      background: rgba(5,16,28,0.72);
+      border-bottom: 1px solid var(--border-soft);
       padding: 14px 28px;
       display: flex;
       align-items: center;
@@ -45,93 +90,286 @@
     }
     .logo { display: flex; align-items: center; gap: 12px; }
     .logo-bubble {
-      width: 42px; height: 42px;
-      background: radial-gradient(circle at 35% 35%, #00ffcc, #008866);
-      border-radius: 50%;
+      width: 36px; height: 36px;
+      background: radial-gradient(circle at 32% 30%, var(--teal-hi), #0e7a6a 70%);
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 0 16px rgba(0,212,170,0.4);
+      font-size: 18px;
+      box-shadow: 0 0 24px var(--teal-glow), inset 0 1px 0 rgba(255,255,255,0.15);
     }
-    .logo h1 { font-size: 17px; color: var(--teal); letter-spacing: 4px; text-transform: uppercase; }
-    .logo p  { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
-    .hud { display: flex; gap: 26px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
-    .hud-item { display: flex; align-items: center; gap: 7px; }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--safe); animation: pulse 2.2s ease-in-out infinite; }
-    .dot.idle  { background: #335; animation: none; }
-    .dot.busy  { background: var(--warn); animation: pulse 0.8s ease-in-out infinite; }
-    .dot.error { background: #ff4444; animation: none; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .logo h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    .logo p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+      font-weight: 500;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-soft);
+    }
+    .nav-links a { transition: color .15s; }
+    .nav-links a:hover { color: var(--text); }
+    .hud {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .hud-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.02);
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--safe);
+      box-shadow: 0 0 8px var(--safe);
+      animation: pulse 2.2s ease-in-out infinite;
+    }
+    .dot.idle  { background: #3a5a78; box-shadow: none; animation: none; }
+    .dot.busy  { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse 0.8s ease-in-out infinite; }
+    .dot.error { background: #ff4444; box-shadow: 0 0 8px #ff4444; animation: none; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
-    /* ── WRAPPERS ─────────────────────────────────────────── */
+    /* ── HERO ────────────────────────────────────────────── */
+    .hero {
+      padding: 90px 28px 70px;
+      text-align: center;
+      max-width: 1100px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(45,212,191,0.08);
+      border: 1px solid rgba(45,212,191,0.25);
+      color: var(--teal-hi);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      margin-bottom: 28px;
+    }
+    .hero-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      box-shadow: 0 0 8px var(--teal);
+    }
+    .hero h2.hero-title {
+      font-size: clamp(40px, 6vw, 72px);
+      line-height: 1.02;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      color: var(--text);
+      margin-bottom: 22px;
+    }
+    .hero h2.hero-title .accent {
+      background: linear-gradient(120deg, var(--teal-hi), var(--cyan) 70%, var(--blue));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero-sub {
+      font-size: clamp(16px, 1.5vw, 19px);
+      color: var(--text-soft);
+      max-width: 640px;
+      margin: 0 auto 36px;
+      line-height: 1.55;
+    }
+    .hero-cta {
+      display: inline-flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 56px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .2s, background .2s, border-color .2s;
+      text-decoration: none;
+    }
+    .btn-cta {
+      background: linear-gradient(180deg, var(--teal-hi), var(--teal));
+      color: #06241e;
+      box-shadow: 0 6px 22px rgba(45,212,191,0.32), inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+    .btn-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(45,212,191,0.42), inset 0 1px 0 rgba(255,255,255,0.5); }
+    .btn-ghost {
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.08); border-color: var(--muted-soft); }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 32px 36px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+    }
+    .stat-num {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-num.gradient {
+      background: linear-gradient(120deg, var(--teal-hi), var(--cyan));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── PAGE WRAP ───────────────────────────────────────── */
     .page-wrap {
       flex: 1;
-      max-width: 1440px;
+      max-width: 1280px;
       width: 100%;
       margin: 0 auto;
-      padding: 22px 28px;
+      padding: 40px 28px 80px;
       display: flex;
       flex-direction: column;
-      gap: 22px;
+      gap: 80px;
+    }
+
+    /* ── SECTION HEADERS ─────────────────────────────────── */
+    .section-head {
+      max-width: 720px;
+      margin-bottom: 32px;
+    }
+    .section-eyebrow {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--teal);
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(28px, 3.6vw, 40px);
+      line-height: 1.1;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text);
+      margin-bottom: 14px;
+    }
+    .section-sub {
+      font-size: 17px;
+      color: var(--text-soft);
+      line-height: 1.55;
     }
 
     /* ── PANEL ───────────────────────────────────────────── */
     .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: linear-gradient(180deg, var(--bg-card), var(--bg-mid));
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
       overflow: hidden;
+      box-shadow: var(--shadow-card);
     }
     .panel-head {
-      background: var(--bg-card);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 16px;
-      display: flex; align-items: center; gap: 8px;
-      font-size: 10px; letter-spacing: 2.5px; color: var(--cyan);
-      text-transform: uppercase;
+      background: rgba(255,255,255,0.015);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 16px 22px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.005em;
     }
     .panel-head .badge {
       margin-left: auto;
-      background: rgba(0,212,170,0.12);
-      border: 1px solid rgba(0,212,170,0.28);
-      color: var(--teal);
-      font-size: 9px; padding: 2px 9px; border-radius: 20px;
+      background: rgba(45,212,191,0.1);
+      border: 1px solid rgba(45,212,191,0.3);
+      color: var(--teal-hi);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
     }
     .panel-head .badge.purple {
-      background: rgba(167,139,250,0.12);
-      border-color: rgba(167,139,250,0.28);
+      background: rgba(167,139,250,0.1);
+      border-color: rgba(167,139,250,0.3);
       color: var(--purple);
     }
-    .panel-body { padding: 18px; }
+    .panel-body { padding: 22px; }
 
     /* ── SCENARIO CARDS ──────────────────────────────────── */
     .scenarios-row {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      padding: 18px;
+      gap: 16px;
+      padding: 22px;
     }
 
     .scenario-card {
-      border-radius: 7px;
-      border: 1px solid var(--border);
+      border-radius: 14px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-mid);
       overflow: hidden;
       cursor: pointer;
-      transition: border-color .25s, box-shadow .25s, transform .15s;
+      transition: border-color .2s, transform .2s, box-shadow .25s;
       position: relative;
     }
     .scenario-card:hover {
-      border-color: var(--muted);
-      transform: translateY(-2px);
+      border-color: var(--muted-soft);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lift);
     }
     .scenario-card.active {
       border-color: var(--teal);
-      box-shadow: 0 0 20px rgba(0,212,170,0.2);
+      box-shadow: 0 0 0 1px var(--teal), 0 14px 40px var(--teal-glow);
     }
 
-    /* Thumbnail */
     .sc-thumb {
       position: relative;
-      height: 130px;
+      height: 160px;
       overflow: hidden;
       background: var(--bg-mid);
     }
@@ -139,106 +377,113 @@
       width: 100%; height: 100%;
       object-fit: cover;
       display: block;
-      filter: brightness(0.55) saturate(0.8);
-      transition: filter .3s;
+      filter: brightness(0.62) saturate(0.85);
+      transition: filter .3s, transform .5s;
     }
     .scenario-card:hover .sc-thumb img,
-    .scenario-card.active .sc-thumb img { filter: brightness(0.7) saturate(1); }
+    .scenario-card.active .sc-thumb img { filter: brightness(0.78) saturate(1); transform: scale(1.03); }
 
     .sc-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, transparent 40%, rgba(2,11,24,0.85) 100%);
-      padding: 10px;
+      background: linear-gradient(180deg, transparent 30%, rgba(5,16,28,0.85) 100%);
+      padding: 12px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
     }
     .sc-badge {
       align-self: flex-start;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
       border: 1px solid rgba(255,255,255,0.15);
-      color: var(--muted);
-      font-size: 9px; letter-spacing: 1px;
-      padding: 3px 8px; border-radius: 3px;
+      color: var(--text-soft);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      padding: 4px 10px;
+      border-radius: 6px;
     }
     .sc-play {
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      width: 38px; height: 38px;
-      background: rgba(0,212,170,0.85);
+      width: 46px; height: 46px;
+      background: rgba(45,212,191,0.92);
+      color: #06241e;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+      font-size: 16px;
       opacity: 0;
-      transition: opacity .2s;
+      transition: opacity .2s, transform .2s;
+      box-shadow: 0 10px 30px rgba(45,212,191,0.4);
     }
     .scenario-card:hover .sc-play,
     .scenario-card.active .sc-play { opacity: 1; }
 
     .sc-active-tick {
       position: absolute;
-      top: 8px; right: 8px;
+      top: 10px; right: 10px;
       background: var(--teal);
-      color: #020b18;
-      width: 22px; height: 22px;
+      color: #06241e;
+      width: 26px; height: 26px;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px;
+      font-size: 14px;
+      font-weight: 700;
       opacity: 0;
       transition: opacity .2s;
+      box-shadow: 0 4px 14px var(--teal-glow);
     }
     .scenario-card.active .sc-active-tick { opacity: 1; }
 
-    /* Card body */
-    .sc-body { padding: 12px; }
-
+    .sc-body { padding: 16px 18px 18px; }
     .sc-title {
-      font-size: 12px;
-      font-weight: bold;
+      font-size: 16px;
+      font-weight: 600;
       color: var(--text);
-      letter-spacing: 1px;
-      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
     }
     .sc-source {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--muted);
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+      line-height: 1.5;
     }
-    .sc-source a { color: var(--cyan); text-decoration: none; }
-    .sc-source a:hover { text-decoration: underline; }
+    .sc-source a { color: var(--cyan); transition: color .15s; }
+    .sc-source a:hover { color: var(--teal-hi); text-decoration: underline; }
 
-    .sc-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .sc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
     .sc-tag {
-      font-size: 9px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      background: rgba(0,180,216,0.1);
-      border: 1px solid rgba(0,180,216,0.2);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.2);
       color: var(--cyan);
     }
 
     /* ── EXPANDED EXAMPLE AREA ───────────────────────────── */
     #expandedArea {
       display: none;
-      padding: 0 18px 18px;
-      animation: fadeIn .3s ease;
+      padding: 0 22px 22px;
+      animation: fadeIn .35s ease;
     }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
 
     .expanded-grid {
       display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 18px;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 22px;
     }
 
-    /* Video embed */
     .video-embed-wrap {
-      border-radius: 6px;
+      border-radius: 12px;
       overflow: hidden;
       background: #010d1a;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-soft);
     }
     .video-embed-wrap iframe {
       width: 100%;
@@ -247,67 +492,78 @@
       border: none;
     }
     .video-meta-bar {
-      padding: 10px 14px;
-      border-top: 1px solid var(--border);
-      display: flex; gap: 16px; flex-wrap: wrap;
-      font-size: 10px; color: var(--muted); letter-spacing: 1px;
+      padding: 14px 18px;
+      margin-top: 12px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      display: flex; gap: 18px; flex-wrap: wrap;
+      font-size: 13px; color: var(--text-soft); font-weight: 500;
     }
-    .video-meta-bar span { display: flex; align-items: center; gap: 5px; }
+    .video-meta-bar span { display: flex; align-items: center; gap: 6px; }
 
-    /* Mini annotation results */
-    .anno-grid { display: flex; flex-direction: column; gap: 10px; }
+    .anno-grid { display: flex; flex-direction: column; gap: 12px; }
 
     .anno-card {
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 11px 13px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: border-color .2s;
     }
-    .anno-card.has-hazard { border-color: rgba(255,107,53,0.4); }
-    .anno-head {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 9px; letter-spacing: 2px; color: var(--cyan);
-      text-transform: uppercase; margin-bottom: 7px;
-    }
-    .anno-icon { font-size: 13px; }
-    .anno-count { margin-left: auto; }
-    .anno-body { font-size: 11px; line-height: 1.6; }
+    .anno-card:hover { border-color: var(--border); }
+    .anno-card.has-hazard { border-color: rgba(251,124,90,0.35); background: rgba(251,124,90,0.04); }
 
-    .tag-row { display: flex; flex-wrap: wrap; gap: 5px; }
+    .anno-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .anno-icon { font-size: 14px; }
+    .anno-count { margin-left: auto; font-weight: 600; letter-spacing: 0.02em; text-transform: none; font-size: 12px; }
+    .anno-body { font-size: 14px; line-height: 1.6; color: var(--text); }
+
+    .tag-row { display: flex; flex-wrap: wrap; gap: 6px; }
     .tag {
-      background: rgba(0,180,216,0.1);
-      border: 1px solid rgba(0,180,216,0.25);
+      background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(56,189,248,0.22);
       color: var(--cyan);
-      padding: 3px 9px; border-radius: 20px; font-size: 10px;
+      padding: 4px 11px; border-radius: 999px;
+      font-size: 12px; font-weight: 500;
     }
     .tag.hazard {
-      background: rgba(255,107,53,0.1);
-      border-color: rgba(255,107,53,0.35);
+      background: rgba(251,124,90,0.1);
+      border-color: rgba(251,124,90,0.32);
       color: var(--hazard);
     }
     .tag.safe {
-      background: rgba(0,229,160,0.1);
-      border-color: rgba(0,229,160,0.28);
+      background: rgba(52,211,153,0.1);
+      border-color: rgba(52,211,153,0.3);
       color: var(--safe);
     }
 
-    .vis-row  { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
-    .vis-dots { display: flex; gap: 4px; }
-    .vis-dot  { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--border); }
-    .vis-dot.on-poor     { background: var(--hazard); border-color: var(--hazard); box-shadow: 0 0 5px var(--hazard); }
-    .vis-dot.on-moderate { background: var(--warn);   border-color: var(--warn);   box-shadow: 0 0 5px var(--warn); }
-    .vis-dot.on-good     { background: var(--safe);   border-color: var(--safe);   box-shadow: 0 0 5px var(--safe); }
-    .vis-text { font-size: 12px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; }
+    .vis-row  { display: flex; align-items: center; gap: 12px; }
+    .vis-dots { display: flex; gap: 5px; }
+    .vis-dot  { width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--border); }
+    .vis-dot.on-poor     { background: var(--hazard); border-color: var(--hazard); box-shadow: 0 0 8px var(--hazard); }
+    .vis-dot.on-moderate { background: var(--warn);   border-color: var(--warn);   box-shadow: 0 0 8px var(--warn); }
+    .vis-dot.on-good     { background: var(--safe);   border-color: var(--safe);   box-shadow: 0 0 8px var(--safe); }
+    .vis-text { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
     .vis-poor     { color: var(--hazard); }
     .vis-moderate { color: var(--warn); }
     .vis-good     { color: var(--safe); }
 
     .action-block {
       border-left: 3px solid var(--blue);
-      padding: 8px 11px;
-      background: rgba(0,136,255,0.07);
-      border-radius: 0 4px 4px 0;
-      font-size: 11px; line-height: 1.6;
+      padding: 10px 14px;
+      background: rgba(96,165,250,0.08);
+      border-radius: 0 8px 8px 0;
+      font-size: 14px; line-height: 1.6;
+      color: var(--text);
     }
 
     /* ── MAIN TOOL GRID ──────────────────────────────────── */
@@ -320,58 +576,76 @@
 
     /* Upload zone */
     .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 6px;
-      padding: 30px 20px;
+      border: 1.5px dashed var(--border);
+      border-radius: 12px;
+      padding: 44px 24px;
       text-align: center;
       cursor: pointer;
       position: relative;
       transition: border-color .25s, background .25s;
+      background: rgba(255,255,255,0.015);
     }
     .upload-zone:hover, .upload-zone.drag-over {
       border-color: var(--teal);
-      background: rgba(0,212,170,0.04);
+      background: rgba(45,212,191,0.05);
     }
     .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-    .upload-icon  { font-size: 38px; margin-bottom: 10px; }
-    .upload-label { font-size: 12px; color: var(--teal); margin-bottom: 4px; letter-spacing: 1px; }
-    .upload-sub   { font-size: 11px; color: var(--muted); }
+    .upload-icon  { font-size: 44px; margin-bottom: 14px; }
+    .upload-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .upload-sub   { font-size: 13px; color: var(--muted); }
 
     .video-preview-wrap {
-      margin-top: 14px;
-      border-radius: 6px;
+      margin-top: 16px;
+      border-radius: 10px;
       overflow: hidden;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-soft);
       background: #010d1a;
     }
     .video-preview-wrap video {
-      width: 100%; max-height: 190px;
+      width: 100%; max-height: 210px;
       display: block; object-fit: contain;
     }
     .video-meta {
       display: flex; justify-content: space-between;
-      padding: 7px 12px;
-      font-size: 10px; color: var(--muted); letter-spacing: 1px;
-      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      font-size: 12px; color: var(--muted); font-weight: 500;
+      border-top: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.02);
     }
 
     /* Pipeline steps */
     .step-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 7px 10px;
-      border-radius: 4px;
-      font-size: 10px; letter-spacing: 1px; color: var(--muted);
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px; font-weight: 500; color: var(--muted);
       border: 1px solid transparent;
-      margin-bottom: 5px;
-      transition: all .3s;
+      margin-bottom: 6px;
+      transition: all .25s;
     }
-    .step-row.active { color: var(--text); border-color: var(--border); background: var(--bg-card); }
+    .step-row.active { color: var(--text); border-color: var(--border-soft); background: rgba(255,255,255,0.03); }
     .step-row.done   { color: var(--safe); }
     .step-row.fail   { color: var(--hazard); }
-    .step-icon { font-size: 13px; width: 20px; text-align: center; flex-shrink: 0; }
+    .step-icon {
+      font-size: 13px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-soft);
+      flex-shrink: 0;
+      font-weight: 600;
+    }
+    .step-row.done .step-icon { background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.4); color: var(--safe); }
     .step-spinner {
-      width: 13px; height: 13px;
-      border: 2px solid rgba(0,212,170,0.2);
+      width: 16px; height: 16px;
+      border: 2px solid rgba(45,212,191,0.2);
       border-top-color: var(--teal);
       border-radius: 50%;
       animation: spin 0.9s linear infinite;
@@ -379,48 +653,70 @@
     }
     @keyframes spin { to{transform:rotate(360deg)} }
 
-    .progress-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+    .progress-wrap {
+      height: 4px;
+      background: var(--border-soft);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--teal), var(--cyan));
-      border-radius: 2px;
+      border-radius: 4px;
       transition: width .4s ease;
+      box-shadow: 0 0 12px var(--teal-glow);
     }
 
     /* API controls */
-    .api-section { margin-top: 16px; display: flex; flex-direction: column; gap: 11px; }
-    .field-label { font-size: 10px; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 5px; }
+    .api-section { margin-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
     .api-input {
       width: 100%;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-soft);
       color: var(--text);
-      font-family: 'Courier New', monospace;
-      font-size: 12px; padding: 10px 13px; border-radius: 4px;
-      outline: none; transition: border-color .2s;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      outline: none;
+      transition: border-color .2s, background .2s;
     }
-    .api-input::placeholder { color: #2a5a7a; }
-    .api-input:focus { border-color: var(--teal); }
+    .api-input::placeholder { color: var(--muted-soft); }
+    .api-input:focus {
+      border-color: var(--teal);
+      background: rgba(45,212,191,0.04);
+      box-shadow: 0 0 0 3px var(--teal-glow);
+    }
 
     .btn-primary {
       position: relative; overflow: hidden;
-      width: 100%; padding: 13px;
-      background: linear-gradient(135deg, #006644, #00a878);
+      width: 100%; padding: 14px;
+      background: linear-gradient(180deg, var(--teal-hi), var(--teal));
       border: 1px solid var(--teal);
-      color: var(--text);
-      font-family: 'Courier New', monospace;
-      font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase;
-      border-radius: 4px; cursor: pointer;
-      transition: background .25s, box-shadow .25s;
+      color: #06241e;
+      font-family: var(--font-sans);
+      font-size: 14px; font-weight: 700; letter-spacing: -0.005em;
+      border-radius: 10px; cursor: pointer;
+      transition: transform .15s, box-shadow .25s;
+      box-shadow: 0 6px 22px rgba(45,212,191,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
     }
     .btn-primary:hover:not(:disabled) {
-      background: linear-gradient(135deg, #008855, #00c490);
-      box-shadow: 0 0 22px rgba(0,212,170,0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 28px rgba(45,212,191,0.42), inset 0 1px 0 rgba(255,255,255,0.5);
     }
-    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
     .scan-line {
       position: absolute; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--teal), transparent);
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
       top: -4px; pointer-events: none;
     }
     .btn-primary.scanning .scan-line { animation: scanDown 1.4s linear infinite; }
@@ -430,17 +726,18 @@
     .results-idle {
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      min-height: 360px; gap: 14px;
+      min-height: 380px; gap: 16px;
       color: var(--muted); text-align: center;
+      padding: 20px;
     }
-    .results-idle-icon  { font-size: 50px; opacity: 0.18; }
+    .results-idle-icon  { font-size: 56px; opacity: 0.25; }
 
     .sonar-wrap {
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      min-height: 360px; gap: 18px;
+      min-height: 380px; gap: 20px;
     }
-    .sonar { position: relative; width: 72px; height: 72px; }
+    .sonar { position: relative; width: 84px; height: 84px; }
     .sonar-ring {
       position: absolute;
       border: 2px solid var(--teal); border-radius: 50%;
@@ -448,50 +745,52 @@
     }
     .sonar-ring:nth-child(2) { animation-delay: 0.65s; }
     .sonar-ring:nth-child(3) { animation-delay: 1.3s; }
-    @keyframes sonarPulse { 0%{inset:32px;opacity:0.9} 100%{inset:0;opacity:0} }
-    .sonar-core { position: absolute; inset: 30px; background: var(--teal); border-radius: 50%; }
-    .sonar-msg { font-size: 10px; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; }
-    .sonar-sub { font-size: 10px; color: #1a4a6a; animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes sonarPulse { 0%{inset:36px;opacity:0.9} 100%{inset:0;opacity:0} }
+    .sonar-core {
+      position: absolute; inset: 34px;
+      background: var(--teal); border-radius: 50%;
+      box-shadow: 0 0 16px var(--teal-glow);
+    }
+    .sonar-msg { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--text-soft); }
+    .sonar-sub { font-size: 12px; color: var(--muted); animation: pulse 1.6s ease-in-out infinite; }
 
     /* Full result cards */
-    .card-grid { display: flex; flex-direction: column; gap: 13px; }
+    .card-grid { display: flex; flex-direction: column; gap: 14px; }
     .rcard {
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 6px; padding: 14px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 16px 18px;
       transition: border-color .2s;
     }
-    .rcard:hover { border-color: #1e6a9a; }
+    .rcard:hover { border-color: var(--border); }
     .rcard-head {
       display: flex; align-items: center; gap: 8px;
-      font-size: 9px; letter-spacing: 2px; color: var(--cyan);
-      text-transform: uppercase; margin-bottom: 9px;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
     }
     .rcard-icon { font-size: 15px; }
-    .rcard-count { margin-left: auto; }
-    .rcard-body { font-size: 12px; line-height: 1.65; }
-    .rcard.has-hazard { border-color: rgba(255,107,53,0.4); }
-    .action-block {
-      border-left: 3px solid var(--blue);
-      padding: 9px 12px;
-      background: rgba(0,136,255,0.07);
-      border-radius: 0 4px 4px 0;
-      font-size: 12px; line-height: 1.6;
-    }
+    .rcard-count { margin-left: auto; font-weight: 600; letter-spacing: 0.02em; text-transform: none; font-size: 12px; }
+    .rcard-body { font-size: 14px; line-height: 1.65; color: var(--text); }
+    .rcard.has-hazard { border-color: rgba(251,124,90,0.35); background: rgba(251,124,90,0.03); }
 
     .error-card {
-      background: rgba(255,60,60,0.08);
-      border: 1px solid rgba(255,60,60,0.28);
-      color: #ff7070; padding: 16px; border-radius: 6px;
-      font-size: 12px; line-height: 1.7;
+      background: rgba(251,124,90,0.08);
+      border: 1px solid rgba(251,124,90,0.32);
+      color: #ff9a7e;
+      padding: 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.65;
     }
 
-    /* Video fallback when embedding is blocked */
     .video-fallback {
       position: relative;
       aspect-ratio: 16/9;
       overflow: hidden;
-      border-radius: 4px;
+      border-radius: 8px;
       background: #010d1a;
     }
     .video-fallback img {
@@ -504,85 +803,617 @@
       position: absolute; inset: 0;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 14px;
-      background: rgba(2,11,24,0.5);
+      gap: 16px;
+      background: rgba(5,16,28,0.55);
     }
     .video-fallback-overlay p {
-      font-size: 10px; color: var(--muted); letter-spacing: 1.5px;
+      font-size: 13px; color: var(--text-soft);
       text-align: center; padding: 0 20px;
     }
     .btn-yt {
-      display: flex; align-items: center; gap: 8px;
+      display: inline-flex; align-items: center; gap: 8px;
       background: #ff0000;
       color: #fff;
-      border: none; border-radius: 4px;
-      padding: 9px 18px;
-      font-family: 'Courier New', monospace;
-      font-size: 11px; letter-spacing: 1.5px;
+      border: none; border-radius: 8px;
+      padding: 10px 20px;
+      font-family: var(--font-sans);
+      font-size: 13px; font-weight: 600;
       cursor: pointer; text-decoration: none;
-      transition: background .2s;
+      transition: background .2s, transform .15s;
     }
-    .btn-yt:hover { background: #cc0000; }
+    .btn-yt:hover { background: #cc0000; transform: translateY(-1px); }
 
-    /* Video check spinner */
     .video-checking {
       aspect-ratio: 16/9;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 12px;
+      gap: 14px;
       background: #010d1a;
-      border-radius: 4px;
+      border-radius: 8px;
     }
     .video-checking-spinner {
-      width: 24px; height: 24px;
-      border: 2px solid rgba(0,212,170,0.2);
+      width: 28px; height: 28px;
+      border: 2px solid rgba(45,212,191,0.2);
       border-top-color: var(--teal);
       border-radius: 50%;
       animation: spin 0.9s linear infinite;
     }
     .video-checking p {
-      font-size: 9px; letter-spacing: 2px;
+      font-size: 12px; letter-spacing: 0.06em;
       color: var(--muted); text-transform: uppercase;
+      font-weight: 500;
     }
 
     /* ── FOOTER ──────────────────────────────────────────── */
     footer {
-      border-top: 1px solid var(--border);
-      padding: 9px 28px;
-      display: flex; justify-content: space-between;
-      font-size: 10px; color: #1e4a6a; letter-spacing: 1px;
+      border-top: 1px solid var(--border-soft);
+      padding: 28px;
+      max-width: 1280px;
+      margin: 40px auto 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    footer .ft-brand { color: var(--text-soft); font-weight: 600; }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-deep); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted-soft); }
+
+    /* ── ANNOTATED PLAYBACK ──────────────────────────────── */
+    #playbackSection { display: none; }
+    .playback-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 22px;
+      padding: 22px;
+    }
+    .video-stage {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #010d1a;
+      border: 1px solid var(--border-soft);
+      line-height: 0;
+    }
+    .video-stage video {
+      width: 100%;
+      display: block;
+      max-height: 540px;
+      object-fit: contain;
+      background: #000;
+    }
+    #overlayCanvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      min-height: 44px;
+      align-items: center;
+    }
+    .legend-row .legend-empty {
+      font-size: 12px; color: var(--muted); font-style: italic;
+    }
+    .legend-chip {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 500; color: var(--text);
+      padding: 4px 11px 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border-soft);
+    }
+    .legend-swatch {
+      width: 10px; height: 10px; border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .legend-count {
+      color: var(--muted); font-weight: 600;
+      font-variant-numeric: tabular-nums;
     }
 
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: var(--bg-deep); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .annotations-side {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 620px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .anno-side-head {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .anno-side-head .badge-small {
+      float: right;
+      font-size: 11px;
+      color: var(--teal-hi);
+      font-weight: 600;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .yolo-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .yolo-moment {
+      display: flex;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-soft);
+      background: var(--bg-card);
+      cursor: pointer;
+      transition: border-color .15s, transform .1s, background .15s;
+      align-items: flex-start;
+    }
+    .yolo-moment:hover {
+      border-color: var(--border);
+      background: rgba(45,212,191,0.04);
+    }
+    .yolo-moment.is-active {
+      border-color: var(--teal);
+      background: rgba(45,212,191,0.07);
+      box-shadow: 0 0 0 1px var(--teal-glow);
+    }
+    .yolo-time {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--teal-hi);
+      flex-shrink: 0;
+      width: 44px;
+      padding-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .yolo-classes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      flex: 1;
+    }
+    .yolo-class-chip {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px 2px 7px;
+      border-radius: 999px;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border: 1px solid;
+    }
+    .yolo-class-chip .yolo-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+    }
 
-    @media (max-width: 920px) {
+    .pegasus-side {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .pegasus-card {
+      padding: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+    }
+    .pegasus-card.is-hazard { border-color: rgba(251,124,90,0.35); background: rgba(251,124,90,0.04); }
+    .pegasus-card-head {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .pegasus-card-body {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    /* ── COGNITION DEMO ──────────────────────────────────── */
+    #cognition { scroll-margin-top: 70px; }
+    .cog-grid {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 22px;
+      padding: 22px;
+    }
+    .cog-stage {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #010d1a;
+      border: 1px solid var(--border-soft);
+      aspect-ratio: 16 / 9;
+    }
+    .cog-stage iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: none;
+    }
+    .cog-overlay {
+      position: absolute; inset: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .cog-box {
+      position: absolute;
+      border: 2px solid var(--teal);
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 18px rgba(45,212,191,0.18);
+      opacity: 0;
+      transition: opacity 250ms ease, transform 250ms ease;
+      transform: scale(0.96);
+    }
+    .cog-box.is-on { opacity: 1; transform: scale(1); }
+    .cog-box-label {
+      position: absolute;
+      top: -22px; left: -2px;
+      background: var(--teal);
+      color: #042020;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 3px;
+      white-space: nowrap;
+      text-transform: lowercase;
+    }
+    .cog-box-label .conf { opacity: 0.7; margin-left: 6px; font-weight: 600; }
+
+    .cog-box[data-grp="struct"] { border-color: var(--teal); }
+    .cog-box[data-grp="struct"] .cog-box-label { background: var(--teal); color: #042020; }
+    .cog-box[data-grp="bio"]    { border-color: var(--blue); box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 18px rgba(96,165,250,0.18); }
+    .cog-box[data-grp="bio"] .cog-box-label { background: var(--blue); color: #02132a; }
+    .cog-box[data-grp="hazard"] { border-color: var(--hazard); box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 18px rgba(251,124,90,0.22); }
+    .cog-box[data-grp="hazard"] .cog-box-label { background: var(--hazard); color: #270a02; }
+    .cog-box[data-grp="env"]    { border-color: var(--warn); box-shadow: 0 0 0 1px rgba(0,0,0,0.45), 0 0 18px rgba(251,191,36,0.18); }
+    .cog-box[data-grp="env"] .cog-box-label { background: var(--warn); color: #2a1f02; }
+
+    .cog-hud {
+      position: absolute; top: 10px; left: 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px; font-weight: 600;
+      color: var(--teal-hi);
+      background: rgba(5,16,28,0.78);
+      backdrop-filter: blur(8px);
+      padding: 6px 11px;
+      border-radius: 6px;
+      border: 1px solid var(--border-soft);
+      z-index: 2;
+      pointer-events: none;
+    }
+    .cog-rec-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--hazard);
+      animation: cog-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes cog-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+    .cog-frame-label {
+      position: absolute; bottom: 10px; left: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px; font-weight: 600;
+      color: var(--text);
+      background: rgba(5,16,28,0.78);
+      backdrop-filter: blur(8px);
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-soft);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .cog-side {
+      display: flex; flex-direction: column; gap: 12px;
+      max-height: 540px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .cog-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+    }
+    .cog-card.is-fresh {
+      border-color: var(--teal);
+      background: rgba(45,212,191,0.05);
+      box-shadow: 0 0 0 1px var(--teal-glow);
+    }
+    .cog-card-head {
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 9px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .cog-card-head .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+    .cog-card-head .step-badge {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 10px; font-weight: 600;
+      color: var(--teal-hi);
+      background: rgba(45,212,191,0.10);
+      padding: 1px 7px; border-radius: 999px;
+      letter-spacing: 0.04em; text-transform: none;
+    }
+    .cog-detection-list { display: flex; flex-direction: column; gap: 5px; font-family: var(--font-mono); font-size: 12px; }
+    .cog-detection-row { display: flex; align-items: center; gap: 10px; }
+    .cog-detection-swatch { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+    .cog-detection-cls { color: var(--text); flex: 1; }
+    .cog-detection-conf { color: var(--muted); font-variant-numeric: tabular-nums; }
+    .cog-detection-empty { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    .cog-telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      margin-bottom: 10px;
+    }
+    .cog-telemetry-grid .tlab { color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; font-size: 9.5px; font-weight: 600; }
+    .cog-telemetry-grid .tval { color: var(--text); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+    .cog-context-body { font-size: 12.5px; line-height: 1.6; color: var(--text-soft); }
+    .cog-reasoning-body { font-size: 13px; line-height: 1.6; color: var(--text); min-height: 1.6em; }
+    .cog-reasoning-body .typed-cursor {
+      display: inline-block; width: 7px; height: 13px;
+      background: var(--teal);
+      margin-left: 1px; vertical-align: text-bottom;
+      animation: cog-blink 0.8s steps(1) infinite;
+    }
+    @keyframes cog-blink { 50% { opacity: 0; } }
+    .cog-command {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--teal-hi);
+      background: rgba(45,212,191,0.06);
+      border-left: 3px solid var(--teal);
+      padding: 10px 12px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .cog-command .verb {
+      display: block;
+      color: var(--text);
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .cog-timeline {
+      margin: 4px 22px 22px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+    .cog-controls { display: flex; gap: 8px; }
+    .cog-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      font-size: 12.5px; font-weight: 600;
+      cursor: pointer;
+      transition: border-color 150ms, background 150ms;
+      font-family: inherit;
+    }
+    .cog-btn:hover { border-color: var(--teal); background: rgba(45,212,191,0.05); }
+    .cog-btn.is-primary { background: var(--teal); color: #042020; border-color: var(--teal); }
+    .cog-btn.is-primary:hover { background: var(--teal-hi); }
+    .cog-ticks { display: flex; gap: 6px; }
+    .cog-tick {
+      flex: 1;
+      height: 42px;
+      border-radius: 6px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      cursor: pointer;
+      transition: border-color 150ms, background 150ms;
+      font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--muted);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 3px 4px;
+      overflow: hidden;
+      text-align: center;
+    }
+    .cog-tick:hover { border-color: var(--border); color: var(--text-soft); }
+    .cog-tick.is-active {
+      border-color: var(--teal);
+      background: rgba(45,212,191,0.10);
+      color: var(--teal-hi);
+    }
+    .cog-tick.is-past {
+      border-color: var(--border);
+      background: var(--bg-mid);
+      color: var(--text-soft);
+    }
+    .cog-tick .tval {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0;
+      font-weight: 500;
+      margin-top: 1px;
+    }
+    .cog-tick.is-active .tval { color: var(--teal-hi); }
+
+    /* ── WAITLIST ────────────────────────────────────────── */
+    #waitlist { scroll-margin-top: 70px; }
+    .waitlist-panel {
+      padding: 30px 32px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 40px;
+      align-items: start;
+    }
+    .waitlist-lead h3 {
+      font-size: 22px; font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+    .waitlist-lead p {
+      font-size: 14.5px;
+      color: var(--text-soft);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+    .waitlist-bullets {
+      display: flex; flex-direction: column; gap: 9px;
+      font-size: 13px; color: var(--text-soft);
+      padding: 0;
+    }
+    .waitlist-bullets li {
+      display: flex; align-items: flex-start; gap: 9px;
+      list-style: none;
+    }
+    .waitlist-bullets li::before {
+      content: "→"; color: var(--teal); font-weight: 700; flex-shrink: 0;
+    }
+    .waitlist-form { display: flex; flex-direction: column; gap: 12px; }
+    .waitlist-field { display: flex; flex-direction: column; gap: 5px; }
+    .waitlist-field label {
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .waitlist-field input,
+    .waitlist-field select,
+    .waitlist-field textarea {
+      background: var(--bg-card);
+      border: 1px solid var(--border-soft);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13.5px;
+      font-family: inherit;
+      transition: border-color 150ms, background 150ms;
+      width: 100%;
+    }
+    .waitlist-field input:focus,
+    .waitlist-field select:focus,
+    .waitlist-field textarea:focus {
+      outline: none;
+      border-color: var(--teal);
+      background: rgba(45,212,191,0.03);
+    }
+    .waitlist-field textarea { resize: vertical; min-height: 70px; }
+    .waitlist-submit {
+      margin-top: 6px;
+      padding: 13px 18px;
+      background: linear-gradient(90deg, var(--teal), var(--cyan));
+      color: #042020;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      transition: filter 150ms, transform 150ms;
+    }
+    .waitlist-submit:hover { filter: brightness(1.08); }
+    .waitlist-submit:active { transform: translateY(1px); }
+    .waitlist-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .waitlist-msg { font-size: 13px; color: var(--muted); min-height: 18px; }
+    .waitlist-msg.ok  { color: var(--safe); }
+    .waitlist-msg.err { color: var(--hazard); }
+    .waitlist-success {
+      display: none;
+      grid-column: 1 / -1;
+      background: rgba(52,211,153,0.06);
+      border: 1px solid rgba(52,211,153,0.35);
+      padding: 20px 24px;
+      border-radius: 10px;
+      color: var(--text);
+    }
+    .waitlist-success.is-on { display: block; }
+    .waitlist-success strong { color: var(--safe); }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 980px) {
       .main-grid { grid-template-columns: 1fr; }
       .scenarios-row { grid-template-columns: 1fr; }
       .expanded-grid { grid-template-columns: 1fr; }
+      .playback-grid { grid-template-columns: 1fr; }
+      .annotations-side { max-height: none; }
+      .hero-stats { grid-template-columns: repeat(2, 1fr); }
+      .nav-links { display: none; }
+      .hero { padding: 60px 24px 50px; }
+      .cog-grid { grid-template-columns: 1fr; }
+      .cog-side { max-height: none; }
+      .waitlist-panel { grid-template-columns: 1fr; gap: 24px; padding: 22px; }
+      .cog-ticks { overflow-x: auto; }
+      .cog-tick { min-width: 80px; flex: 0 0 auto; }
+      .cog-timeline { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      header { padding: 12px 18px; }
+      .page-wrap { padding: 24px 18px 60px; gap: 60px; }
+      .hud-item span:not(.dot) { display: none; }
+      .hero-stats { padding: 22px 18px; gap: 18px; }
+      .stat-num { font-size: 26px; }
     }
   </style>
 </head>
 <body>
 
-<!-- ══════════ HEADER ══════════ -->
+<!-- ══════════ NAV ══════════ -->
 <header>
   <div class="logo">
-    <div class="logo-bubble">🤖</div>
+    <div class="logo-bubble">🐟</div>
     <div>
-      <h1>ROV Vision</h1>
-      <p>Underwater Video Analysis System · Twelve Labs Pegasus</p>
+      <h1>FishBytes</h1>
+      <p>Underwater ROV Vision · Twelve Labs Pegasus</p>
     </div>
   </div>
+  <nav class="nav-links">
+    <a href="#cognition">Cognition</a>
+    <a href="#scenarios">Scenarios</a>
+    <a href="#tool">Tool</a>
+    <a href="#waitlist">Waitlist</a>
+  </nav>
   <div class="hud">
     <div class="hud-item">
       <div class="dot" id="sysDot"></div>
-      <span id="sysLabel">SYSTEM ONLINE</span>
+      <span id="sysLabel">System online</span>
     </div>
     <div class="hud-item">
       <div class="dot idle" id="apiDot"></div>
-      <span id="apiLabel">API STANDBY</span>
+      <span id="apiLabel">API standby</span>
     </div>
     <div class="hud-item" id="depthItem" style="display:none">
       <span>⬇</span><span id="depthVal">— m</span>
@@ -590,208 +1421,416 @@
   </div>
 </header>
 
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <span class="hero-badge">Now in beta · Pegasus 1.2</span>
+  <h2 class="hero-title">See the deep,<br><span class="accent">smarter.</span></h2>
+  <p class="hero-sub">FishBytes turns raw ROV footage into annotated intelligence — auto-tagged hazards, identified marine life, visibility scoring, and inspection-ready reports in minutes.</p>
+  <div class="hero-cta">
+    <a href="#cognition" class="btn btn-cta">Watch the demo →</a>
+    <a href="#waitlist" class="btn btn-ghost">Join waitlist</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <div class="stat-num gradient">3</div>
+      <div class="stat-label">Demo environments</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num gradient">5</div>
+      <div class="stat-label">Annotation fields</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num gradient">42m</div>
+      <div class="stat-label">Max sample depth</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num gradient">Live</div>
+      <div class="stat-label">Pegasus API</div>
+    </div>
+  </div>
+</section>
+
 <div class="page-wrap">
 
-<!-- ══════════ DATABASE EXAMPLES ══════════ -->
-<div class="panel">
-  <div class="panel-head">
-    📚 &nbsp;Video Database — Example Scenarios
-    <span class="badge purple">3 ENVIRONMENTS</span>
+<!-- ══════════ COGNITION DEMO ══════════ -->
+<section id="cognition">
+  <div class="section-head">
+    <span class="section-eyebrow">Cognition live</span>
+    <h2 class="section-title">From sight to command.</h2>
+    <p class="section-sub">Watch FishBytes turn one second of ROV footage into the ROV's next move. Object detection drops boxes on the frame. The scene becomes structured context. Our policy model reasons about it and outputs a discrete motor command — every tick.</p>
   </div>
 
-  <div class="scenarios-row">
-
-    <!-- CARD 1: Oil Rig -->
-    <div class="scenario-card" id="card-oilrig" onclick="loadScenario('oilrig')">
-      <div class="sc-thumb">
-        <img src="https://img.youtube.com/vi/XxNY2eAp1Qw/hqdefault.jpg" alt="Oil rig ROV inspection">
-        <div class="sc-overlay">
-          <span class="sc-badge">OFFSHORE / SUBSEA</span>
-          <div></div>
-        </div>
-        <div class="sc-play">▶</div>
-        <div class="sc-active-tick">✓</div>
-      </div>
-      <div class="sc-body">
-        <div class="sc-title">⚙️ Oil Rig Inspection</div>
-        <div class="sc-source">
-          Source: <a href="https://www.digitaledgesubsea.com/" target="_blank">Digital Edge Subsea</a>
-          &nbsp;·&nbsp;
-          <a href="https://oceanexplorer.noaa.gov/data/access/access.html" target="_blank">NOAA OER</a>
-        </div>
-        <div class="sc-tags">
-          <span class="sc-tag">jacket structure</span>
-          <span class="sc-tag">corrosion</span>
-          <span class="sc-tag">marine growth</span>
-          <span class="sc-tag">anodes</span>
-        </div>
-      </div>
+  <div class="panel">
+    <div class="panel-head">
+      <span style="color: var(--teal);">🧠</span> Cognition pipeline
+      <span class="badge purple">Pre-recorded run · INSP-2026-051</span>
     </div>
 
-    <!-- CARD 2: Aquaculture -->
-    <div class="scenario-card" id="card-aquaculture" onclick="loadScenario('aquaculture')">
-      <div class="sc-thumb">
-        <img src="https://img.youtube.com/vi/iFMeC3V2Z-s/hqdefault.jpg" alt="Aquaculture fish farm">
-        <div class="sc-overlay">
-          <span class="sc-badge">AQUACULTURE / MARICULTURE</span>
-          <div></div>
-        </div>
-        <div class="sc-play">▶</div>
-        <div class="sc-active-tick">✓</div>
-      </div>
-      <div class="sc-body">
-        <div class="sc-title">🐟 Aquaculture Fish Farm</div>
-        <div class="sc-source">
-          Source: <a href="https://lila.science/datasets/community-fish-detection-dataset/" target="_blank">LILA Community Fish</a>
-          &nbsp;·&nbsp;
-          <a href="https://github.com/open-AIMS/ozfish" target="_blank">OzFish</a>
-        </div>
-        <div class="sc-tags">
-          <span class="sc-tag">Atlantic salmon</span>
-          <span class="sc-tag">sea lice</span>
-          <span class="sc-tag">net pen</span>
-          <span class="sc-tag">feeding</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- CARD 3: Port / Harbor -->
-    <div class="scenario-card" id="card-port" onclick="loadScenario('port')">
-      <div class="sc-thumb">
-        <img src="https://img.youtube.com/vi/f8yy8_0_y6U/hqdefault.jpg" alt="Port harbor inspection">
-        <div class="sc-overlay">
-          <span class="sc-badge">PORT / HARBOR INFRASTRUCTURE</span>
-          <div></div>
-        </div>
-        <div class="sc-play">▶</div>
-        <div class="sc-active-tick">✓</div>
-      </div>
-      <div class="sc-body">
-        <div class="sc-title">🏗️ Port &amp; Harbor Inspection</div>
-        <div class="sc-source">
-          Source: <a href="https://seagrant.mit.edu/auvlab-datasets-marine-perception-1/" target="_blank">MIT Sea Grant AUV Lab</a>
-          &nbsp;·&nbsp;
-          <a href="https://www.youtube.com/watch?v=f8yy8_0_y6U" target="_blank">VideoRay</a>
-        </div>
-        <div class="sc-tags">
-          <span class="sc-tag">concrete piling</span>
-          <span class="sc-tag">biofouling</span>
-          <span class="sc-tag">debris</span>
-          <span class="sc-tag">spalling</span>
-        </div>
-      </div>
-    </div>
-
-  </div><!-- /scenarios-row -->
-
-  <!-- EXPANDED ANNOTATION AREA -->
-  <div id="expandedArea">
-    <div class="expanded-grid">
-
-      <!-- Left: video (checking → iframe or fallback) -->
+    <div class="cog-grid">
       <div>
-        <div class="video-embed-wrap" id="videoSlot">
-          <!-- replaced by JS: checking spinner → iframe or fallback -->
-          <div class="video-checking">
-            <div class="video-checking-spinner"></div>
-            <p>Checking video…</p>
+        <div class="cog-stage" id="cogStage">
+          <iframe id="cogPlayer"
+            src="https://www.youtube-nocookie.com/embed/XxNY2eAp1Qw?enablejsapi=1&amp;autoplay=1&amp;controls=0&amp;rel=0&amp;modestbranding=1&amp;playsinline=1&amp;mute=1&amp;loop=1&amp;playlist=XxNY2eAp1Qw"
+            title="Oil rig ROV inspection footage"
+            allow="autoplay; encrypted-media"
+            allowfullscreen></iframe>
+          <div class="cog-hud"><span class="cog-rec-dot"></span> <span>REC · 1080p · <span id="cogTickLabel">t 0.0s</span></span></div>
+          <div class="cog-overlay" id="cogOverlay"></div>
+          <div class="cog-frame-label" id="cogFrameLabel">⌬ FishBytes inference · idle</div>
+        </div>
+      </div>
+
+      <aside class="cog-side">
+        <div class="cog-card" id="cogPerceptionCard">
+          <div class="cog-card-head"><span class="step-dot"></span> Perception <span class="step-badge">step 1</span></div>
+          <div class="cog-detection-list" id="cogDetections">
+            <div class="cog-detection-empty">Press play to start the run.</div>
           </div>
         </div>
-        <div class="video-meta-bar" id="videoMetaBar">
-          <span>📡 —</span><span>📍 —</span><span>🎥 —</span>
+        <div class="cog-card" id="cogContextCard">
+          <div class="cog-card-head"><span class="step-dot"></span> Scene context <span class="step-badge">step 2</span></div>
+          <div class="cog-telemetry-grid" id="cogTelemetry"></div>
+          <div class="cog-context-body" id="cogContextBody">—</div>
+        </div>
+        <div class="cog-card" id="cogReasoningCard">
+          <div class="cog-card-head"><span class="step-dot"></span> Model reasoning <span class="step-badge">step 3</span></div>
+          <div class="cog-reasoning-body" id="cogReasoningBody">—</div>
+        </div>
+        <div class="cog-card" id="cogCommandCard">
+          <div class="cog-card-head"><span class="step-dot"></span> Next move <span class="step-badge">step 4</span></div>
+          <div class="cog-command" id="cogCommand"><span class="verb">awaiting</span>standby</div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="cog-timeline">
+      <div class="cog-controls">
+        <button class="cog-btn is-primary" id="cogPlayBtn" type="button">▶  Run demo</button>
+        <button class="cog-btn" id="cogResetBtn" type="button">↺ Reset</button>
+      </div>
+      <div class="cog-ticks" id="cogTicks"></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════ DATABASE EXAMPLES ══════════ -->
+<section id="scenarios">
+  <div class="section-head">
+    <span class="section-eyebrow">Example library</span>
+    <h2 class="section-title">Three dives, three environments.</h2>
+    <p class="section-sub">Click a scenario to see how Pegasus annotates the footage — scene description, detected objects, hazard flags, visibility, and a recommended next action.</p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <span style="color: var(--teal);">📚</span> Video database
+      <span class="badge purple">3 environments</span>
+    </div>
+
+    <div class="scenarios-row">
+
+      <!-- CARD 1: Oil Rig -->
+      <div class="scenario-card" id="card-oilrig" onclick="loadScenario('oilrig')">
+        <div class="sc-thumb">
+          <img src="https://img.youtube.com/vi/XxNY2eAp1Qw/hqdefault.jpg" alt="Oil rig ROV inspection">
+          <div class="sc-overlay">
+            <span class="sc-badge">Offshore / Subsea</span>
+            <div></div>
+          </div>
+          <div class="sc-play">▶</div>
+          <div class="sc-active-tick">✓</div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-title">⚙️ Oil Rig Inspection</div>
+          <div class="sc-source">
+            Source: <a href="https://www.digitaledgesubsea.com/" target="_blank">Digital Edge Subsea</a>
+            ·
+            <a href="https://oceanexplorer.noaa.gov/data/access/access.html" target="_blank">NOAA OER</a>
+          </div>
+          <div class="sc-tags">
+            <span class="sc-tag">jacket structure</span>
+            <span class="sc-tag">corrosion</span>
+            <span class="sc-tag">marine growth</span>
+            <span class="sc-tag">anodes</span>
+          </div>
         </div>
       </div>
 
-      <!-- Right: annotation cards -->
-      <div class="anno-grid" id="annoGrid"></div>
+      <!-- CARD 2: Aquaculture -->
+      <div class="scenario-card" id="card-aquaculture" onclick="loadScenario('aquaculture')">
+        <div class="sc-thumb">
+          <img src="https://img.youtube.com/vi/iFMeC3V2Z-s/hqdefault.jpg" alt="Aquaculture fish farm">
+          <div class="sc-overlay">
+            <span class="sc-badge">Aquaculture / Mariculture</span>
+            <div></div>
+          </div>
+          <div class="sc-play">▶</div>
+          <div class="sc-active-tick">✓</div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-title">🐟 Aquaculture Fish Farm</div>
+          <div class="sc-source">
+            Source: <a href="https://lila.science/datasets/community-fish-detection-dataset/" target="_blank">LILA Community Fish</a>
+            ·
+            <a href="https://github.com/open-AIMS/ozfish" target="_blank">OzFish</a>
+          </div>
+          <div class="sc-tags">
+            <span class="sc-tag">Atlantic salmon</span>
+            <span class="sc-tag">sea lice</span>
+            <span class="sc-tag">net pen</span>
+            <span class="sc-tag">feeding</span>
+          </div>
+        </div>
+      </div>
 
+      <!-- CARD 3: Port / Harbor -->
+      <div class="scenario-card" id="card-port" onclick="loadScenario('port')">
+        <div class="sc-thumb">
+          <img src="https://img.youtube.com/vi/f8yy8_0_y6U/hqdefault.jpg" alt="Port harbor inspection">
+          <div class="sc-overlay">
+            <span class="sc-badge">Port / Harbor</span>
+            <div></div>
+          </div>
+          <div class="sc-play">▶</div>
+          <div class="sc-active-tick">✓</div>
+        </div>
+        <div class="sc-body">
+          <div class="sc-title">🏗️ Port &amp; Harbor Inspection</div>
+          <div class="sc-source">
+            Source: <a href="https://seagrant.mit.edu/auvlab-datasets-marine-perception-1/" target="_blank">MIT Sea Grant AUV Lab</a>
+            ·
+            <a href="https://www.youtube.com/watch?v=f8yy8_0_y6U" target="_blank">VideoRay</a>
+          </div>
+          <div class="sc-tags">
+            <span class="sc-tag">concrete piling</span>
+            <span class="sc-tag">biofouling</span>
+            <span class="sc-tag">debris</span>
+            <span class="sc-tag">spalling</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /scenarios-row -->
+
+    <!-- EXPANDED ANNOTATION AREA -->
+    <div id="expandedArea">
+      <div class="expanded-grid">
+
+        <div>
+          <div class="video-embed-wrap" id="videoSlot">
+            <div class="video-checking">
+              <div class="video-checking-spinner"></div>
+              <p>Checking video…</p>
+            </div>
+          </div>
+          <div class="video-meta-bar" id="videoMetaBar">
+            <span>📡 —</span><span>📍 —</span><span>🎥 —</span>
+          </div>
+        </div>
+
+        <div class="anno-grid" id="annoGrid"></div>
+
+      </div>
     </div>
-  </div>
 
-</div><!-- /database panel -->
+  </div>
+</section>
 
 
 <!-- ══════════ MAIN TOOL ══════════ -->
-<div class="main-grid">
+<section id="tool">
+  <div class="section-head">
+    <span class="section-eyebrow">Run it yourself</span>
+    <h2 class="section-title">Drop in your own footage.</h2>
+    <p class="section-sub">Upload an MP4, paste your Twelve Labs API key, and watch the Pegasus pipeline annotate scene, objects, hazards, visibility, and the next action.</p>
+  </div>
 
-  <!-- LEFT: Upload + Pipeline -->
-  <div class="left-col">
+  <div class="main-grid">
 
-    <div class="panel">
-      <div class="panel-head">📹 &nbsp;Custom Video Input</div>
-      <div class="panel-body">
-        <div class="upload-zone" id="uploadZone">
-          <input type="file" id="fileInput" accept="video/*">
-          <div class="upload-icon">🌊</div>
-          <div class="upload-label">Upload Your Own Video</div>
-          <div class="upload-sub">Drag &amp; drop or click · MP4 / MOV / AVI / WEBM</div>
-        </div>
-        <div id="videoWrap" style="display:none">
-          <div class="video-preview-wrap">
-            <video id="videoEl" controls muted></video>
-            <div class="video-meta">
-              <span id="videoName">—</span>
-              <span id="videoSize">—</span>
+    <div class="left-col">
+
+      <div class="panel">
+        <div class="panel-head"><span style="color: var(--teal);">📹</span> Custom video input</div>
+        <div class="panel-body">
+          <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept="video/*">
+            <div class="upload-icon">🌊</div>
+            <div class="upload-label">Drop your dive footage here</div>
+            <div class="upload-sub">Drag &amp; drop or click · MP4 / MOV / AVI / WEBM</div>
+          </div>
+          <div id="videoWrap" style="display:none">
+            <div class="video-preview-wrap">
+              <video id="videoEl" controls muted></video>
+              <div class="video-meta">
+                <span id="videoName">—</span>
+                <span id="videoSize">—</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <div class="panel" id="controlPanel" style="display:none">
+        <div class="panel-head"><span style="color: var(--teal);">⚙️</span> Analysis pipeline
+          <span class="badge" id="pipelineBadge">Idle</span>
+        </div>
+        <div class="panel-body">
+
+          <div id="stepsWrap">
+            <div class="step-row" id="step1"><span class="step-icon" id="step1icon">1</span><span>Load YOLO detector (COCO-SSD)</span></div>
+            <div class="step-row" id="step2"><span class="step-icon" id="step2icon">2</span><span id="step2label">Scan frames for objects</span></div>
+            <div class="step-row" id="step3"><span class="step-icon" id="step3icon">3</span><span>Create / verify Twelve Labs index</span></div>
+            <div class="step-row" id="step4"><span class="step-icon" id="step4icon">4</span><span>Upload video to Twelve Labs</span></div>
+            <div class="step-row" id="step5"><span class="step-icon" id="step5icon">5</span><span id="step5label">Index video &amp; extract features</span></div>
+            <div class="step-row" id="step6"><span class="step-icon" id="step6icon">6</span><span>Generate Pegasus analysis</span></div>
+            <div class="progress-wrap" id="progressWrap" style="display:none">
+              <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div class="api-section">
+            <div>
+              <div class="field-label">Twelve Labs API key</div>
+              <input type="password" class="api-input" id="apiKey" placeholder="tlk_…">
+            </div>
+            <button class="btn-primary" id="analyzeBtn" disabled onclick="runPipeline()">
+              <div class="scan-line"></div>
+              ⚡ &nbsp;Initiate video analysis
+            </button>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
-    <div class="panel" id="controlPanel" style="display:none">
-      <div class="panel-head">⚙️ &nbsp;Analysis Pipeline
-        <span class="badge" id="pipelineBadge">IDLE</span>
+    <div class="panel">
+      <div class="panel-head"><span style="color: var(--teal);">🎯</span> Vision analysis output
+        <span class="badge" id="liveBadge" style="display:none">Live</span>
       </div>
-      <div class="panel-body">
+      <div class="panel-body" id="resultsBody">
+        <div class="results-idle">
+          <div class="results-idle-icon">📹</div>
+          <div style="font-size:14px; color: var(--text-soft); font-weight: 500;">Select a scenario above or upload your own video</div>
+          <div style="font-size:12px; color: var(--muted);">Real-time analysis via Twelve Labs Pegasus API</div>
+        </div>
+      </div>
+    </div>
 
-        <div id="stepsWrap">
-          <div class="step-row" id="step1"><span class="step-icon" id="step1icon">1</span><span>Create / verify index</span></div>
-          <div class="step-row" id="step2"><span class="step-icon" id="step2icon">2</span><span>Upload video to Twelve Labs</span></div>
-          <div class="step-row" id="step3"><span class="step-icon" id="step3icon">3</span><span id="step3label">Index video &amp; extract features</span></div>
-          <div class="step-row" id="step4"><span class="step-icon" id="step4icon">4</span><span>Generate ROV analysis</span></div>
-          <div class="progress-wrap" id="progressWrap" style="display:none">
-            <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <!-- ══════════ ANNOTATED PLAYBACK ══════════ -->
+  <div id="playbackSection" style="margin-top: 40px;">
+    <div class="section-head" style="margin-bottom: 22px;">
+      <span class="section-eyebrow">Annotated playback</span>
+      <h2 class="section-title">Watch with bounding boxes.</h2>
+      <p class="section-sub">YOLO ran on sampled frames and tagged everything it could see. Boxes track with playback; click any moment in the timeline to seek there.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span style="color: var(--teal);">🎬</span> Annotated playback
+        <span class="badge" id="playbackBadge">0 detections</span>
+      </div>
+      <div class="playback-grid">
+        <div>
+          <div class="video-stage">
+            <video id="playbackVideo" controls playsinline></video>
+            <canvas id="overlayCanvas"></canvas>
+          </div>
+          <div class="legend-row" id="legendRow">
+            <span class="legend-empty">No detections yet.</span>
           </div>
         </div>
-
-        <div class="api-section">
+        <div class="annotations-side">
           <div>
-            <div class="field-label">TWELVE LABS API KEY</div>
-            <input type="password" class="api-input" id="apiKey" placeholder="tlk_…">
+            <div class="anno-side-head">YOLO timeline <span class="badge-small" id="yoloCountBadge">0</span></div>
+            <div id="yoloTimeline" class="yolo-timeline"></div>
           </div>
-          <button class="btn-primary" id="analyzeBtn" disabled onclick="runPipeline()">
-            <div class="scan-line"></div>
-            ⚡&nbsp; INITIATE VIDEO ANALYSIS
-          </button>
+          <div>
+            <div class="anno-side-head" style="margin-top: 20px;">Pegasus analysis</div>
+            <div id="pegasusSide" class="pegasus-side"></div>
+          </div>
         </div>
-
       </div>
     </div>
-
   </div>
 
-  <!-- RIGHT: Results -->
+</section>
+
+
+<!-- ══════════ WAITLIST ══════════ -->
+<section id="waitlist">
+  <div class="section-head">
+    <span class="section-eyebrow">Early access</span>
+    <h2 class="section-title">Join the FishBytes waitlist.</h2>
+    <p class="section-sub">We're opening the beta to a small number of subsea operators, marine scientists, and ROV pilots. Tell us how you'd use FishBytes — the most relevant teams go first.</p>
+  </div>
+
   <div class="panel">
-    <div class="panel-head">🎯 &nbsp;Vision Analysis Output
-      <span class="badge" id="liveBadge" style="display:none">LIVE</span>
+    <div class="panel-head">
+      <span style="color: var(--teal);">📬</span> Request access
+      <span class="badge" id="waitlistBadge">Now accepting · Cohort 02</span>
     </div>
-    <div class="panel-body" id="resultsBody">
-      <div class="results-idle">
-        <div class="results-idle-icon">📹</div>
-        <div style="font-size:12px;color:var(--muted);letter-spacing:1px">Select a scenario above or upload your own video</div>
-        <div style="font-size:10px;color:#1a4a6a;letter-spacing:1px">Real-time analysis via Twelve Labs Pegasus API</div>
+
+    <div class="waitlist-panel">
+      <div class="waitlist-lead">
+        <h3>What you get in the beta</h3>
+        <p>Upload dive footage, get annotated playback, hazard flags, structured inspection reports, and the next-move policy you just saw in action — applied to your own ROV's class set.</p>
+        <ul class="waitlist-bullets">
+          <li>Annotated playback with the full detection class set for subsea infrastructure</li>
+          <li>Pegasus-grade scene summaries and hazard prioritization</li>
+          <li>Policy model that turns detections into discrete motor commands</li>
+          <li>Direct line to our team for footage triage and class-set tuning</li>
+        </ul>
+      </div>
+
+      <form class="waitlist-form" id="waitlistForm" novalidate>
+        <div class="waitlist-field">
+          <label for="wlEmail">Email</label>
+          <input type="email" id="wlEmail" name="email" autocomplete="email" required placeholder="you@company.com">
+        </div>
+        <div class="waitlist-field">
+          <label for="wlName">Name</label>
+          <input type="text" id="wlName" name="name" autocomplete="name" required placeholder="Casey Ríos">
+        </div>
+        <div class="waitlist-field">
+          <label for="wlRole">Role</label>
+          <select id="wlRole" name="role" required>
+            <option value="">Pick one…</option>
+            <option>Subsea operator / inspector</option>
+            <option>ROV pilot</option>
+            <option>Marine scientist / researcher</option>
+            <option>Energy / pipeline operator</option>
+            <option>Aquaculture operator</option>
+            <option>Defense / government</option>
+            <option>Investor</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="waitlist-field">
+          <label for="wlUse">What would you use it for? (optional)</label>
+          <textarea id="wlUse" name="useCase" placeholder="e.g. weekly inspections of 40+ subsea wells in the North Sea"></textarea>
+        </div>
+        <button type="submit" class="waitlist-submit" id="wlSubmit">Join waitlist →</button>
+        <div class="waitlist-msg" id="wlMsg">&nbsp;</div>
+      </form>
+
+      <div class="waitlist-success" id="wlSuccess">
+        <strong>You're on the list.</strong>
+        <p style="font-size: 13px; color: var(--text-soft); margin-top: 6px; line-height: 1.5;">We'll be in touch from <code>team@fishbytes.com</code> as cohorts open. In the meantime, scroll up — your account will start with the scenarios and tool you see above.</p>
       </div>
     </div>
   </div>
-
-</div><!-- /main-grid -->
+</section>
 
 </div><!-- /page-wrap -->
 
 <footer>
-  <span>ROV VISION SYSTEM &nbsp;·&nbsp; TWELVE LABS PEGASUS + NOAA / LILA / MIT DATASETS</span>
+  <span><span class="ft-brand">FishBytes</span> · Underwater ROV Vision · Twelve Labs Pegasus + NOAA / LILA / MIT datasets</span>
   <span id="tsDisplay">—</span>
-  <span>FISHBYTES RESEARCH</span>
+  <span>© 2026 FishBytes Research</span>
 </footer>
 
 <script>
@@ -800,7 +1839,6 @@
   ══════════════════════════════════════════ */
   const SCENARIOS = {
     oilrig: {
-      // Candidates tried in order; first embeddable wins
       videoIds: ['XxNY2eAp1Qw', '0TyewyN9lNM', 'zZjeCb8rfWY', '0PS8DD8boWE'],
       thumbId:  'XxNY2eAp1Qw',
       ytLink:   'https://www.youtube.com/watch?v=XxNY2eAp1Qw',
@@ -827,7 +1865,6 @@
       }
     },
     port: {
-      // f8yy8_0_y6U has embedding disabled (Error 153) — try alternates
       videoIds: ['_B7M2EHgZWw', '0PS8DD8boWE', 'XxNY2eAp1Qw', 'f8yy8_0_y6U'],
       thumbId:  'f8yy8_0_y6U',
       ytLink:   'https://www.youtube.com/watch?v=f8yy8_0_y6U',
@@ -849,31 +1886,35 @@
   let depthTimer = null;
   let depthVal = null;
 
+  // YOLO state
+  let cocoModel = null;
+  let yoloFrames = [];      // [{time, boxes:[{bbox:[x,y,w,h], class, score}]}]
+  let activeMomentIdx = -1;
+  const classPalette = ['#2dd4bf','#38bdf8','#a78bfa','#fb7c5a','#fbbf24','#34d399','#f472b6','#60a5fa','#facc15','#22d3ee'];
+  const classColorCache = {};
+
   const TL = 'https://api.twelvelabs.io/v1.3';
   const INDEX_NAME = 'rov-underwater-vision';
 
   /* ── Video loader ────────────────────────────────────── */
-  // Plain iframe + always-visible YouTube link underneath.
-  // The YT IFrame Player API requires HTTP/HTTPS and breaks thumbnails
-  // when injected into file:// pages, so we don't use it here.
   function loadVideoWithFallback(slotId, videoIds, thumbId, ytLink) {
     const slot = document.getElementById(slotId);
-    const id   = videoIds[0]; // best candidate first
+    const id   = videoIds[0];
 
     slot.innerHTML = `
-      <div style="border-radius:4px;overflow:hidden;">
+      <div style="border-radius:8px;overflow:hidden;">
         <iframe
           src="https://www.youtube-nocookie.com/embed/${escHtml(id)}?rel=0&modestbranding=1&color=white"
           allowfullscreen
           style="width:100%;aspect-ratio:16/9;display:block;border:none;">
         </iframe>
-        <div style="background:var(--bg-card);border-top:1px solid var(--border);padding:8px 13px;
+        <div style="background:rgba(255,255,255,0.02);border-top:1px solid var(--border-soft);padding:10px 14px;
                     display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:9px;color:var(--muted);letter-spacing:1.5px">
-            VIDEO BLOCKED? OPEN DIRECTLY ↓
+          <span style="font-size:12px;color:var(--muted);font-weight:500">
+            Video blocked? Open directly ↓
           </span>
           <a class="btn-yt" href="${escHtml(ytLink)}" target="_blank" rel="noopener"
-             style="padding:5px 14px;font-size:10px;letter-spacing:1px">
+             style="padding:6px 14px;font-size:12px">
             ▶ &nbsp;Watch on YouTube
           </a>
         </div>
@@ -882,7 +1923,6 @@
 
   /* ── Scenario loading ────────────────────────────────── */
   function loadScenario(key) {
-    // Toggle off if same card clicked again
     if (activeScenario === key) {
       activeScenario = null;
       document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
@@ -895,28 +1935,22 @@
     activeScenario = key;
     const s = SCENARIOS[key];
 
-    // Highlight card
     document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
     document.getElementById('card-' + key).classList.add('active');
 
-    // Show expanded area with spinner in video slot
     document.getElementById('expandedArea').style.display = 'block';
     document.getElementById('expandedArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Video slot cleared — loadVideoWithFallback will fill it immediately
     document.getElementById('videoSlot').innerHTML = '';
 
-    // Meta bar
     document.getElementById('videoMetaBar').innerHTML =
       s.meta.map(m => `<span>${escHtml(m)}</span>`).join('');
 
-    // Render annotations immediately
     renderAnnoGrid(s.annotation);
     renderResults(s.annotation, true);
     document.getElementById('tsDisplay').textContent =
-      'DEMO · ' + new Date().toISOString().replace('T',' ').slice(0,10);
+      'Demo · ' + new Date().toISOString().replace('T',' ').slice(0,10);
 
-    // Try each video ID via the YT IFrame API; fall back to thumbnail on error 101/150
     loadVideoWithFallback('videoSlot', s.videoIds, s.thumbId, s.ytLink);
   }
 
@@ -935,8 +1969,8 @@
         <div class="anno-body">${escHtml(r.scene_description)}</div>
       </div>
       <div class="anno-card">
-        <div class="anno-head"><span class="anno-icon">🐠</span> Detected Objects
-          <span class="anno-count" style="margin-left:auto;color:var(--teal)">${objs.length}</span>
+        <div class="anno-head"><span class="anno-icon">🐠</span> Detected objects
+          <span class="anno-count" style="margin-left:auto;color:var(--teal-hi)">${objs.length}</span>
         </div>
         <div class="anno-body">
           <div class="tag-row">
@@ -954,7 +1988,7 @@
           <div class="tag-row">
             ${haz.length
               ? haz.map(h=>`<span class="tag hazard">⚠️ ${escHtml(h)}</span>`).join('')
-              : '<span class="tag safe">✓ CLEAR</span>'}
+              : '<span class="tag safe">✓ Clear</span>'}
           </div>
         </div>
       </div>
@@ -1008,7 +2042,7 @@
     zone.innerHTML = `
       <input type="file" id="fileInput" accept="video/*">
       <div class="upload-icon">🎬</div>
-      <div class="upload-label" style="color:var(--teal)">${escHtml(file.name.length>32?file.name.slice(0,29)+'…':file.name)}</div>
+      <div class="upload-label" style="color:var(--teal-hi)">${escHtml(file.name.length>32?file.name.slice(0,29)+'…':file.name)}</div>
       <div class="upload-sub">${fmtBytes(file.size)} · click to replace</div>
     `;
     document.getElementById('fileInput').addEventListener('change', e => {
@@ -1019,6 +2053,9 @@
     syncBtn();
     document.getElementById('liveBadge').style.display = 'none';
     document.getElementById('resultsBody').innerHTML = idleHTML('Video loaded — enter API key and analyze');
+    // Hide any previous playback session
+    document.getElementById('playbackSection').style.display = 'none';
+    yoloFrames = [];
 
     depthVal = +(Math.random()*90+5).toFixed(1);
     document.getElementById('depthItem').style.display = 'flex';
@@ -1035,62 +2072,183 @@
     document.getElementById('analyzeBtn').disabled = !(videoFile && key && !running);
   }
 
-  /* ── Twelve Labs Pipeline ────────────────────────────── */
+  /* ── Combined Pipeline (YOLO + Twelve Labs) ──────────── */
   async function runPipeline() {
     const key = document.getElementById('apiKey').value.trim();
     if (!videoFile || !key) return;
 
     running = true; syncBtn();
-    setApiStatus('busy', 'PIPELINE ACTIVE');
-    document.getElementById('pipelineBadge').textContent = 'RUNNING';
+    setApiStatus('busy', 'Pipeline active');
+    document.getElementById('pipelineBadge').textContent = 'Running';
     document.getElementById('analyzeBtn').classList.add('scanning');
-    document.getElementById('analyzeBtn').textContent = '⏳  ANALYZING…';
+    document.getElementById('analyzeBtn').textContent = '⏳ Analyzing…';
     document.getElementById('progressWrap').style.display = 'block';
     showLoader('Initializing pipeline…', '');
 
+    yoloFrames = [];
+
     try {
-      setStep(1,'active'); setProgress(5);
+      // Step 1: Load YOLO model
+      setStep(1,'active'); setProgress(2);
+      showLoader('Loading YOLO detector…', 'First-time download ~30 MB; cached after that.');
+      await loadCocoModel();
+      setStep(1,'done'); setProgress(8);
+
+      // Step 2: Scan frames with YOLO
+      setStep(2,'active');
+      showLoader('Scanning frames with YOLO…', 'Detecting objects at sampled timestamps');
+      yoloFrames = await extractAndDetect(document.getElementById('videoEl'), pct => {
+        setProgress(8 + Math.round(pct * 0.22));
+        document.getElementById('step2label').textContent =
+          `Scan frames for objects (${Math.round(pct*100)}%)`;
+      });
+      setStep(2,'done'); setProgress(30);
+      document.getElementById('step2label').textContent =
+        `Scan frames for objects (${yoloFrames.length} samples, ${countAllDetections(yoloFrames)} hits)`;
+
+      // Step 3: Twelve Labs index
+      setStep(3,'active');
+      showLoader('Preparing Twelve Labs index…', '');
       const indexId = await getOrCreateIndex(key);
       cachedIndexId = indexId;
-      setStep(1,'done'); setProgress(15);
+      setStep(3,'done'); setProgress(38);
 
-      setStep(2,'active');
-      showLoader('Uploading video…', 'This may take a moment for large files');
+      // Step 4: Upload video to TL
+      setStep(4,'active');
+      showLoader('Uploading video to Twelve Labs…', 'This may take a moment for large files');
       const taskId = await uploadVideo(key, indexId);
-      setStep(2,'done'); setProgress(35);
+      setStep(4,'done'); setProgress(50);
 
-      setStep(3,'active');
+      // Step 5: Indexing
+      setStep(5,'active');
       showLoader('Indexing video…', 'Twelve Labs is extracting visual features');
       const videoId = await pollTask(key, taskId, pct => {
-        setProgress(35 + Math.round(pct * 0.45));
-        document.getElementById('step3label').textContent =
+        setProgress(50 + Math.round(pct * 0.40));
+        document.getElementById('step5label').textContent =
           `Index video & extract features (${Math.round(pct)}%)`;
       });
-      setStep(3,'done'); setProgress(82);
+      setStep(5,'done'); setProgress(92);
 
-      setStep(4,'active');
-      showLoader('Generating ROV analysis…', 'Pegasus is reasoning over footage');
+      // Step 6: Pegasus generation
+      setStep(6,'active');
+      showLoader('Generating Pegasus analysis…', 'Reasoning over footage');
       const result = await generateAnalysis(key, videoId);
-      setStep(4,'done'); setProgress(100);
+      setStep(6,'done'); setProgress(100);
 
+      // Render everything
       renderResults(result, false);
-      setApiStatus('online', 'ANALYSIS COMPLETE');
+      setupPlayback(videoFile, yoloFrames, result);
+      setApiStatus('online', 'Analysis complete');
       document.getElementById('liveBadge').style.display = 'inline';
-      document.getElementById('pipelineBadge').textContent = 'COMPLETE';
+      document.getElementById('pipelineBadge').textContent = 'Complete';
       document.getElementById('tsDisplay').textContent =
         new Date().toISOString().replace('T',' ').slice(0,19) + ' UTC';
 
     } catch(e) {
       showError(e.message);
-      setApiStatus('error', 'PIPELINE ERROR');
-      document.getElementById('pipelineBadge').textContent = 'FAILED';
+      setApiStatus('error', 'Pipeline error');
+      document.getElementById('pipelineBadge').textContent = 'Failed';
     } finally {
       running = false;
       const btn = document.getElementById('analyzeBtn');
       btn.classList.remove('scanning');
-      btn.innerHTML = '<div class="scan-line"></div>⚡&nbsp; RE-ANALYZE';
+      btn.innerHTML = '<div class="scan-line"></div>⚡ Re-analyze';
       syncBtn();
     }
+  }
+
+  /* ── YOLO: model loading + frame scanning ────────────── */
+  async function loadCocoModel() {
+    if (cocoModel) return cocoModel;
+    if (typeof cocoSsd === 'undefined') {
+      throw new Error('TensorFlow.js / COCO-SSD failed to load. Check your network and refresh.');
+    }
+    // 'lite_mobilenet_v2' is ~7MB, fastest; 'mobilenet_v2' is ~30MB, more accurate.
+    cocoModel = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    return cocoModel;
+  }
+
+  /**
+   * Seeks the video to a series of timestamps, draws each frame to a canvas,
+   * runs YOLO detection, and returns [{time, boxes}].
+   *
+   * Sample density scales with duration so total frames stay ~60-150.
+   */
+  async function extractAndDetect(srcVideo, onProgress) {
+    const duration = srcVideo.duration;
+    if (!isFinite(duration) || duration <= 0) {
+      throw new Error('Could not read video duration. Try a different file.');
+    }
+    // Adaptive sampling: target ~80 frames, clamped 30-150
+    let interval = duration / 80;
+    interval = Math.max(0.25, Math.min(interval, 3));
+    const totalFrames = Math.ceil(duration / interval);
+
+    // Build a hidden video element seeded from the same file, so we don't fight the user's player
+    const scratch = document.createElement('video');
+    scratch.src = srcVideo.src;
+    scratch.muted = true;
+    scratch.crossOrigin = 'anonymous';
+    scratch.playsInline = true;
+    scratch.preload = 'auto';
+    await new Promise((res, rej) => {
+      scratch.onloadedmetadata = res;
+      scratch.onerror = () => rej(new Error('Scratch video failed to load.'));
+    });
+
+    const w = scratch.videoWidth, h = scratch.videoHeight;
+    if (!w || !h) throw new Error('Video has no decodable frames.');
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    const results = [];
+    let i = 0;
+    for (let t = 0; t < duration; t += interval) {
+      await seekTo(scratch, Math.min(t, duration - 0.05));
+      ctx.drawImage(scratch, 0, 0, w, h);
+      let preds = [];
+      try {
+        preds = await cocoModel.detect(canvas, 20, 0.35);
+      } catch (e) {
+        // Per-frame failure shouldn't kill the whole scan
+        console.warn('YOLO detect failed at t=' + t, e);
+      }
+      results.push({
+        time: t,
+        boxes: preds.map(p => ({
+          bbox: p.bbox,    // [x, y, w, h] in source-pixel coords
+          class: p.class,
+          score: p.score
+        }))
+      });
+      i++;
+      onProgress(i / totalFrames);
+    }
+    return results;
+  }
+
+  function seekTo(videoEl, t) {
+    return new Promise(resolve => {
+      const onSeeked = () => {
+        videoEl.removeEventListener('seeked', onSeeked);
+        // Give the browser one paint to actually render the frame to the video element
+        requestAnimationFrame(() => resolve());
+      };
+      videoEl.addEventListener('seeked', onSeeked);
+      try { videoEl.currentTime = t; } catch (_) { resolve(); }
+    });
+  }
+
+  function countAllDetections(frames) {
+    return frames.reduce((n, f) => n + f.boxes.length, 0);
+  }
+
+  function colorForClass(name) {
+    if (classColorCache[name]) return classColorCache[name];
+    const idx = Object.keys(classColorCache).length % classPalette.length;
+    classColorCache[name] = classPalette[idx];
+    return classColorCache[name];
   }
 
   async function tlFetch(key, method, path, body) {
@@ -1182,34 +2340,34 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
     const haz   = r.hazard_flags || [];
 
     const objTags = objs.map(o=>`<span class="tag">🐠 ${escHtml(o)}</span>`).join('') ||
-      `<span style="color:var(--muted);font-size:11px">None detected</span>`;
+      `<span style="color:var(--muted);font-size:13px">None detected</span>`;
     const hazTags = haz.length
       ? haz.map(h=>`<span class="tag hazard">⚠️ ${escHtml(h)}</span>`).join('')
-      : `<span class="tag safe">✓ NO HAZARDS DETECTED</span>`;
+      : `<span class="tag safe">✓ No hazards detected</span>`;
 
     const demoBadge = isDemo
-      ? `<span style="margin-left:8px;font-size:9px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.3);color:var(--purple);padding:2px 8px;border-radius:10px;letter-spacing:1px">DEMO</span>`
+      ? `<span style="margin-left:8px;font-size:10px;background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.35);color:var(--purple);padding:2px 9px;border-radius:999px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase">Demo</span>`
       : '';
 
     document.getElementById('resultsBody').innerHTML = `
       <div class="card-grid">
 
         <div class="rcard">
-          <div class="rcard-head"><span class="rcard-icon">🔭</span> Scene Description${demoBadge}</div>
+          <div class="rcard-head"><span class="rcard-icon">🔭</span> Scene description${demoBadge}</div>
           <div class="rcard-body">${escHtml(r.scene_description||'—')}</div>
         </div>
 
         <div class="rcard">
           <div class="rcard-head">
-            <span class="rcard-icon">🐠</span> Detected Objects
-            <span class="rcard-count" style="color:var(--teal)">${objs.length} found</span>
+            <span class="rcard-icon">🐠</span> Detected objects
+            <span class="rcard-count" style="color:var(--teal-hi)">${objs.length} found</span>
           </div>
           <div class="rcard-body"><div class="tag-row">${objTags}</div></div>
         </div>
 
         <div class="rcard ${haz.length?'has-hazard':''}">
           <div class="rcard-head">
-            <span class="rcard-icon">⚠️</span> Hazard Flags
+            <span class="rcard-icon">⚠️</span> Hazard flags
             <span class="rcard-count" style="color:${haz.length?'var(--hazard)':'var(--safe)'}">
               ${haz.length} detected
             </span>
@@ -1218,7 +2376,7 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
         </div>
 
         <div class="rcard">
-          <div class="rcard-head"><span class="rcard-icon">👁️</span> Visibility Estimate</div>
+          <div class="rcard-head"><span class="rcard-icon">👁️</span> Visibility estimate</div>
           <div class="rcard-body">
             <div class="vis-row">
               <div class="vis-dots">${dots}</div>
@@ -1228,7 +2386,7 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
         </div>
 
         <div class="rcard">
-          <div class="rcard-head"><span class="rcard-icon">🤖</span> Recommended Action</div>
+          <div class="rcard-head"><span class="rcard-icon">🤖</span> Recommended action</div>
           <div class="rcard-body">
             <div class="action-block">${escHtml(r.recommended_action||'—')}</div>
           </div>
@@ -1241,8 +2399,8 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
   function idleHTML(msg) {
     return `<div class="results-idle">
       <div class="results-idle-icon">📹</div>
-      <div style="font-size:12px;color:var(--muted);letter-spacing:1px">${msg||'Select a scenario above or upload your own video'}</div>
-      <div style="font-size:10px;color:#1a4a6a;letter-spacing:1px">Real-time analysis via Twelve Labs Pegasus API</div>
+      <div style="font-size:14px;color:var(--text-soft);font-weight:500">${msg||'Select a scenario above or upload your own video'}</div>
+      <div style="font-size:12px;color:var(--muted)">Real-time analysis via Twelve Labs Pegasus API</div>
     </div>`;
   }
 
@@ -1267,12 +2425,16 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
   }
 
   function resetSteps() {
-    for (let i=1;i<=4;i++) {
-      document.getElementById('step'+i).className = 'step-row';
+    for (let i=1;i<=6;i++) {
+      const row = document.getElementById('step'+i);
+      if (row) row.className = 'step-row';
       const icon = document.getElementById('step'+i+'icon');
       if (icon) icon.outerHTML = `<span class="step-icon" id="step${i}icon">${i}</span>`;
     }
-    document.getElementById('step3label').textContent = 'Index video & extract features';
+    const s2 = document.getElementById('step2label');
+    if (s2) s2.textContent = 'Scan frames for objects';
+    const s5 = document.getElementById('step5label');
+    if (s5) s5.textContent = 'Index video & extract features';
     setProgress(0);
     document.getElementById('progressWrap').style.display = 'none';
   }
@@ -1296,7 +2458,7 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
   function showError(msg) {
     document.getElementById('resultsBody').innerHTML = `
       <div class="error-card">
-        <div style="font-size:15px;margin-bottom:8px">⚠️ Pipeline Failed</div>
+        <div style="font-size:16px;margin-bottom:10px;font-weight:600">⚠️ Pipeline failed</div>
         <div>${escHtml(msg)}</div>
       </div>`;
   }
@@ -1311,6 +2473,705 @@ Analyze this video footage and respond ONLY with valid JSON — no markdown, no 
     return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  /* ══════════════════════════════════════════
+     ANNOTATED PLAYBACK
+  ══════════════════════════════════════════ */
+  function setupPlayback(file, frames, pegasus) {
+    const section = document.getElementById('playbackSection');
+    const vid     = document.getElementById('playbackVideo');
+    const canvas  = document.getElementById('overlayCanvas');
+
+    // Wire video source
+    if (vid.src) URL.revokeObjectURL(vid.src);
+    vid.src = URL.createObjectURL(file);
+    vid.load();
+
+    // Counts + badges
+    const total = countAllDetections(frames);
+    document.getElementById('playbackBadge').textContent =
+      total + ' detection' + (total === 1 ? '' : 's');
+    document.getElementById('yoloCountBadge').textContent =
+      frames.filter(f => f.boxes.length).length + ' frames';
+
+    // Legend (aggregated class counts across all frames)
+    const classCounts = {};
+    for (const f of frames) for (const b of f.boxes) {
+      classCounts[b.class] = (classCounts[b.class] || 0) + 1;
+    }
+    const legendEl = document.getElementById('legendRow');
+    const legendEntries = Object.entries(classCounts).sort((a,b) => b[1]-a[1]);
+    if (!legendEntries.length) {
+      legendEl.innerHTML = '<span class="legend-empty">No objects detected in sampled frames.</span>';
+    } else {
+      legendEl.innerHTML = legendEntries.map(([cls, cnt]) => `
+        <span class="legend-chip">
+          <span class="legend-swatch" style="background:${colorForClass(cls)}"></span>
+          ${escHtml(cls)}
+          <span class="legend-count">${cnt}</span>
+        </span>`).join('');
+    }
+
+    // Timeline (skip frames with 0 detections to keep it useful)
+    const timelineEl = document.getElementById('yoloTimeline');
+    const withDets = frames
+      .map((f, i) => ({...f, idx: i}))
+      .filter(f => f.boxes.length);
+
+    if (!withDets.length) {
+      timelineEl.innerHTML =
+        '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center;border:1px dashed var(--border-soft);border-radius:10px;">No detections in sampled frames. Try a clearer video or different footage.</div>';
+    } else {
+      timelineEl.innerHTML = withDets.map(f => {
+        // Dedupe class names per frame, show count if >1
+        const classCount = {};
+        for (const b of f.boxes) classCount[b.class] = (classCount[b.class] || 0) + 1;
+        const chips = Object.entries(classCount).map(([cls, n]) => {
+          const c = colorForClass(cls);
+          return `<span class="yolo-class-chip" style="border-color:${c}55;background:${c}1a;">
+            <span class="yolo-dot" style="background:${c}"></span>
+            ${escHtml(cls)}${n>1?` ×${n}`:''}
+          </span>`;
+        }).join('');
+        return `<div class="yolo-moment" data-time="${f.time}" data-idx="${f.idx}" onclick="seekPlayback(${f.time}, ${f.idx})">
+          <div class="yolo-time">${fmtTime(f.time)}</div>
+          <div class="yolo-classes">${chips}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // Pegasus side cards
+    const pSide = document.getElementById('pegasusSide');
+    const haz = pegasus.hazard_flags || [];
+    pSide.innerHTML = `
+      <div class="pegasus-card">
+        <div class="pegasus-card-head">🔭 Scene</div>
+        <div class="pegasus-card-body">${escHtml(pegasus.scene_description || '—')}</div>
+      </div>
+      <div class="pegasus-card ${haz.length ? 'is-hazard' : ''}">
+        <div class="pegasus-card-head">⚠️ Hazards <span style="margin-left:auto;color:${haz.length?'var(--hazard)':'var(--safe)'};font-weight:600">${haz.length}</span></div>
+        <div class="pegasus-card-body">${
+          haz.length
+            ? haz.map(h => `• ${escHtml(h)}`).join('<br>')
+            : '<span style="color:var(--safe)">✓ No hazards detected</span>'
+        }</div>
+      </div>
+      <div class="pegasus-card">
+        <div class="pegasus-card-head">🤖 Recommended action</div>
+        <div class="pegasus-card-body">${escHtml(pegasus.recommended_action || '—')}</div>
+      </div>
+    `;
+
+    // Drive the overlay canvas with playback time
+    vid.removeEventListener('timeupdate', drawOverlay);
+    vid.removeEventListener('seeked', drawOverlay);
+    vid.removeEventListener('loadedmetadata', drawOverlay);
+    vid.addEventListener('timeupdate', drawOverlay);
+    vid.addEventListener('seeked', drawOverlay);
+    vid.addEventListener('loadedmetadata', () => {
+      sizeOverlayCanvas();
+      drawOverlay();
+    });
+    window.removeEventListener('resize', sizeOverlayCanvas);
+    window.addEventListener('resize', sizeOverlayCanvas);
+
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function sizeOverlayCanvas() {
+    const v = document.getElementById('playbackVideo');
+    const c = document.getElementById('overlayCanvas');
+    if (!v || !c) return;
+    const rect = v.getBoundingClientRect();
+    // Match device pixel ratio for crisp lines
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    c.width  = Math.max(1, Math.round(rect.width  * dpr));
+    c.height = Math.max(1, Math.round(rect.height * dpr));
+    c.style.width  = rect.width  + 'px';
+    c.style.height = rect.height + 'px';
+    c.__dpr = dpr;
+  }
+
+  function nearestFrame(t) {
+    if (!yoloFrames.length) return null;
+    // Use the most recent sample whose time <= t, fallback to closest overall
+    let chosen = yoloFrames[0];
+    for (const f of yoloFrames) {
+      if (f.time <= t + 0.001) chosen = f;
+      else break;
+    }
+    return chosen;
+  }
+
+  function drawOverlay() {
+    const v = document.getElementById('playbackVideo');
+    const c = document.getElementById('overlayCanvas');
+    if (!v || !c) return;
+    if (!c.width || !c.height) sizeOverlayCanvas();
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+
+    const frame = nearestFrame(v.currentTime);
+    if (!frame || !frame.boxes.length || !v.videoWidth) {
+      highlightMoment(-1);
+      return;
+    }
+
+    // The video element uses object-fit: contain — so compute the letterboxed rect
+    const rect = computeContainRect(v);
+    const sx = rect.w / v.videoWidth;
+    const sy = rect.h / v.videoHeight;
+    const dpr = c.__dpr || 1;
+
+    ctx.lineWidth = 2 * dpr;
+    ctx.font = `${12 * dpr}px Inter, system-ui, sans-serif`;
+    ctx.textBaseline = 'top';
+
+    for (const b of frame.boxes) {
+      const [bx, by, bw, bh] = b.bbox;
+      const x = (rect.x + bx * sx) * dpr;
+      const y = (rect.y + by * sy) * dpr;
+      const w = bw * sx * dpr;
+      const h = bh * sy * dpr;
+      const color = colorForClass(b.class);
+
+      ctx.strokeStyle = color;
+      ctx.strokeRect(x, y, w, h);
+
+      // Label background
+      const label = `${b.class} ${Math.round(b.score * 100)}%`;
+      const padX = 6 * dpr, padY = 3 * dpr;
+      const tw = ctx.measureText(label).width;
+      const lh = 16 * dpr;
+      let lx = x;
+      let ly = y - lh - 2 * dpr;
+      if (ly < 0) ly = y + 2 * dpr;
+      ctx.fillStyle = color;
+      ctx.fillRect(lx, ly, tw + padX * 2, lh);
+      ctx.fillStyle = '#06241e';
+      ctx.fillText(label, lx + padX, ly + padY);
+    }
+
+    // Highlight the active timeline moment
+    highlightMoment(frame.idx ?? findFrameIndex(frame));
+  }
+
+  function findFrameIndex(frame) {
+    for (let i = 0; i < yoloFrames.length; i++) {
+      if (yoloFrames[i] === frame) return i;
+    }
+    return -1;
+  }
+
+  function highlightMoment(idx) {
+    if (idx === activeMomentIdx) return;
+    activeMomentIdx = idx;
+    document.querySelectorAll('.yolo-moment').forEach(el => {
+      el.classList.toggle('is-active', +el.dataset.idx === idx);
+    });
+    // Scroll the active moment into view in its container
+    const active = document.querySelector('.yolo-moment.is-active');
+    if (active) {
+      const container = active.closest('.annotations-side');
+      if (container) {
+        const ar = active.getBoundingClientRect();
+        const cr = container.getBoundingClientRect();
+        if (ar.top < cr.top || ar.bottom > cr.bottom) {
+          active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+  }
+
+  // The video uses object-fit: contain, so the actual rendered video is letterboxed.
+  // Compute the inner rect (in CSS pixels relative to the element's box).
+  function computeContainRect(videoEl) {
+    const vw = videoEl.videoWidth;
+    const vh = videoEl.videoHeight;
+    const cw = videoEl.clientWidth;
+    const ch = videoEl.clientHeight;
+    if (!vw || !vh) return { x: 0, y: 0, w: cw, h: ch };
+    const sourceAR = vw / vh;
+    const boxAR    = cw / ch;
+    let w, h, x, y;
+    if (sourceAR > boxAR) {
+      // Pillar-letterboxed top/bottom
+      w = cw;
+      h = cw / sourceAR;
+      x = 0;
+      y = (ch - h) / 2;
+    } else {
+      w = ch * sourceAR;
+      h = ch;
+      x = (cw - w) / 2;
+      y = 0;
+    }
+    return { x, y, w, h };
+  }
+
+  function seekPlayback(t, idx) {
+    const v = document.getElementById('playbackVideo');
+    if (!v) return;
+    v.currentTime = Math.max(0, t);
+    if (typeof idx === 'number') highlightMoment(idx);
+    if (v.paused) v.play().catch(()=>{});
+  }
+  window.seekPlayback = seekPlayback;
+
+  function fmtTime(s) {
+    s = Math.max(0, s);
+    const m = Math.floor(s / 60);
+    const ss = Math.floor(s % 60);
+    return `${m}:${ss.toString().padStart(2,'0')}`;
+  }
+
+  /* ══════════════════════════════════════════
+     COGNITION DEMO — detection → context → reasoning → command
+     Data baked offline (see bake_reasoning.py to regenerate).
+  ══════════════════════════════════════════ */
+  const COG_GROUPS = {
+    struct: ['jacket_leg','cross_brace','brace_joint','drill_riser','mooring_chain','weld_seam'],
+    bio:    ['barnacle_growth','macroalgae','biofouling','thermal_coating','open_water'],
+    hazard: ['corrosion_patch','scale_pitting','anode_depletion','chain_link_wear','coating_defect'],
+    env:    ['zinc_anode','sediment_cloud','seabed_silt']
+  };
+  function cogGrp(cls) {
+    for (const g of Object.keys(COG_GROUPS)) if (COG_GROUPS[g].includes(cls)) return g;
+    return 'struct';
+  }
+  const COG_COLOR = { struct: '#2dd4bf', bio: '#60a5fa', hazard: '#fb7c5a', env: '#fbbf24' };
+
+  const COG = {
+    keyframes: [
+      {
+        t: 2, label: "Approach",
+        boxes: [
+          {cls:"jacket_leg",x:0.34,y:0.18,w:0.18,h:0.78,conf:0.94},
+          {cls:"cross_brace",x:0.10,y:0.40,w:0.62,h:0.10,conf:0.87},
+          {cls:"sediment_cloud",x:0.62,y:0.72,w:0.30,h:0.22,conf:0.66}
+        ],
+        telemetry: {depth_m:38.2,heading_deg:142,altitude_m:3.8,current_kt:0.4,visibility_m:6,battery_pct:87},
+        context_summary: "Primary jacket leg directly ahead (~3.5m standoff). Cross-brace runs mid-frame, intersecting leg. Light sediment plume lower-right — ROV downwash from prior turn. Approach trajectory nominal.",
+        reasoning: "Primary leg target acquired at safe 3.5m standoff with cross-brace structure intersecting mid-frame. Sediment plume is residual downwash and non-blocking — proceed to dedicated marine-growth survey on leg face.",
+        command: "Advance. thrust 0.20 m/s · yaw 0° · standoff 3.0 m"
+      },
+      {
+        t: 8, label: "Marine growth",
+        boxes: [
+          {cls:"jacket_leg",x:0.32,y:0.15,w:0.22,h:0.80,conf:0.95},
+          {cls:"barnacle_growth",x:0.36,y:0.30,w:0.14,h:0.18,conf:0.82},
+          {cls:"barnacle_growth",x:0.38,y:0.58,w:0.13,h:0.20,conf:0.79},
+          {cls:"macroalgae",x:0.20,y:0.42,w:0.10,h:0.14,conf:0.71}
+        ],
+        telemetry: {depth_m:38.5,heading_deg:142,altitude_m:3.1,current_kt:0.4,visibility_m:6,battery_pct:86},
+        context_summary: "Heavy biofouling on leg face: two dense barnacle colonies covering ~30% of inspectable surface. Macroalgae cluster on adjacent brace. Standoff stable at 3m.",
+        reasoning: "Two dense barnacle colonies plus macroalgae cluster cover roughly a third of the leg face — significant biofouling load. Capture for the fouling map, then descend along the leg toward anode location.",
+        command: "Capture and descend. thrust 0.10 m/s · pitch -8° · standoff 3.0 m"
+      },
+      {
+        t: 15, label: "Anode",
+        boxes: [
+          {cls:"jacket_leg",x:0.30,y:0.10,w:0.20,h:0.85,conf:0.94},
+          {cls:"zinc_anode",x:0.34,y:0.46,w:0.10,h:0.20,conf:0.89},
+          {cls:"anode_depletion",x:0.34,y:0.46,w:0.10,h:0.20,conf:0.77},
+          {cls:"weld_seam",x:0.30,y:0.62,w:0.20,h:0.04,conf:0.74}
+        ],
+        telemetry: {depth_m:39.0,heading_deg:138,altitude_m:2.4,current_kt:0.5,visibility_m:6,battery_pct:85},
+        context_summary: "Sacrificial zinc anode at mid-leg. Visible wastage estimate >40% — material loss extends along bottom-third of anode body. Adjacent weld seam intact. Photogrammetry capture recommended.",
+        reasoning: "Sacrificial anode wastage exceeds 40% — flag for next maintenance window. Adjacent weld seam reads intact. Hold position for photogrammetry capture before continuing perimeter survey.",
+        command: "Hold and document. thrust 0.0 m/s · standoff 2.4 m"
+      },
+      {
+        t: 22, label: "Corrosion",
+        boxes: [
+          {cls:"cross_brace",x:0.08,y:0.30,w:0.70,h:0.18,conf:0.92},
+          {cls:"brace_joint",x:0.46,y:0.32,w:0.18,h:0.18,conf:0.88},
+          {cls:"corrosion_patch",x:0.48,y:0.34,w:0.14,h:0.12,conf:0.83},
+          {cls:"scale_pitting",x:0.50,y:0.40,w:0.08,h:0.05,conf:0.69}
+        ],
+        telemetry: {depth_m:39.4,heading_deg:122,altitude_m:1.8,current_kt:0.5,visibility_m:5,battery_pct:83},
+        context_summary: "Active corrosion at brace joint B-7. Localized scale pitting visible on lower flange face. Wall thickness measurement strongly indicated. Standoff tight (1.8m) — current pushing ROV toward structure.",
+        reasoning: "Active corrosion and scale pitting at joint B-7 require UT measurement, but current is pushing standoff to 1.8m — too tight. Back off and yaw into the current before committing to the probe approach.",
+        command: "Yaw to weather and back off. thrust -0.15 m/s · yaw +12° · standoff 2.5 m"
+      },
+      {
+        t: 30, label: "Document",
+        boxes: [
+          {cls:"brace_joint",x:0.32,y:0.20,w:0.36,h:0.50,conf:0.91},
+          {cls:"corrosion_patch",x:0.38,y:0.28,w:0.24,h:0.18,conf:0.86},
+          {cls:"scale_pitting",x:0.42,y:0.36,w:0.16,h:0.10,conf:0.74}
+        ],
+        telemetry: {depth_m:39.4,heading_deg:122,altitude_m:1.8,current_kt:0.5,visibility_m:5,battery_pct:82},
+        context_summary: "Station-keeping at brace joint B-7 for high-resolution photogrammetry capture. Thrust elevated to 35% to counter current. Corrosion patch fills upper frame. Two 4K stills queued.",
+        reasoning: "Station holding under elevated thrust to counter current; corrosion patch frames cleanly. Two 4K stills queued for the survey report — once committed, transit to mooring chain crossing.",
+        command: "Hold. thrust 0.0 m/s · standoff 2.5 m"
+      },
+      {
+        t: 38, label: "Mooring",
+        boxes: [
+          {cls:"mooring_chain",x:0.10,y:0.20,w:0.30,h:0.62,conf:0.93},
+          {cls:"chain_link_wear",x:0.18,y:0.42,w:0.12,h:0.10,conf:0.76},
+          {cls:"seabed_silt",x:0.05,y:0.78,w:0.85,h:0.20,conf:0.81}
+        ],
+        telemetry: {depth_m:40.8,heading_deg:98,altitude_m:2.6,current_kt:0.5,visibility_m:4,battery_pct:79},
+        context_summary: "Mooring chain transit at -40.8m. Link wear pattern visible mid-chain — surface abrasion consistent with seabed contact during slack tide. Seabed silt drifting through lower frame, visibility degrading to 4m.",
+        reasoning: "Chain link wear matches seabed-contact abrasion — record but routine. Silt drift is degrading visibility to 4m; gain altitude above the silt column before approaching the riser.",
+        command: "Ascend. thrust 0.20 m/s · pitch +6° · standoff 3.5 m"
+      },
+      {
+        t: 46, label: "Riser",
+        boxes: [
+          {cls:"drill_riser",x:0.40,y:0.05,w:0.20,h:0.92,conf:0.96},
+          {cls:"thermal_coating",x:0.40,y:0.20,w:0.20,h:0.50,conf:0.85},
+          {cls:"coating_defect",x:0.46,y:0.40,w:0.06,h:0.10,conf:0.71}
+        ],
+        telemetry: {depth_m:41.0,heading_deg:75,altitude_m:3.0,current_kt:0.4,visibility_m:5,battery_pct:76},
+        context_summary: "Drill riser pipeline centered in frame. Thermal insulation coating intact along majority of inspected length. Localized coating defect at mid-section — possible holiday, ~6cm extent. Cathodic potential reading recommended.",
+        reasoning: "Drill riser coating is intact except for a ~6cm holiday at mid-section. Close to within CP probe range, take the reading, then mark coordinates and continue the inspection sweep.",
+        command: "Approach and probe. thrust 0.10 m/s · yaw -8° · standoff 1.5 m"
+      },
+      {
+        t: 55, label: "Egress",
+        boxes: [
+          {cls:"jacket_leg",x:0.06,y:0.20,w:0.14,h:0.74,conf:0.88},
+          {cls:"drill_riser",x:0.78,y:0.10,w:0.14,h:0.86,conf:0.90},
+          {cls:"open_water",x:0.22,y:0.30,w:0.54,h:0.50,conf:0.95}
+        ],
+        telemetry: {depth_m:38.0,heading_deg:45,altitude_m:4.8,current_kt:0.3,visibility_m:6,battery_pct:73},
+        context_summary: "Clearing structure on egress vector. Jacket leg and riser bracket the frame. Mid-frame open water — safe ascent corridor. Mission timeline 73% remaining. Three flagged anomalies queued for surface review.",
+        reasoning: "Structure cleared on egress with open water mid-frame as the safe ascent corridor. Three anomalies queued — B-7 UT measurement, anode B-3 replacement, riser coating holiday — for surface team handoff.",
+        command: "Egress. thrust 0.30 m/s · yaw +15° · pitch +4° · standoff 5.0 m"
+      }
+    ]
+  };
+  const COG_LAST_T = COG.keyframes[COG.keyframes.length - 1].t;
+  const COG_DUR_S = COG_LAST_T + 5;  // total loop length
+
+  const cogState = { playing: false, timer: null, startMs: 0, pausedAt: 0, activeIdx: -1, typeInterval: null };
+
+  function cogRenderTicks() {
+    const ticks = document.getElementById('cogTicks');
+    if (!ticks) return;
+    ticks.innerHTML = COG.keyframes.map((kf, i) =>
+      `<div class="cog-tick" data-i="${i}"><div>${escHtml(kf.label)}</div><span class="tval">t${kf.t}s</span></div>`
+    ).join('');
+    ticks.querySelectorAll('.cog-tick').forEach(el => {
+      el.addEventListener('click', () => cogSeek(parseInt(el.dataset.i, 10)));
+    });
+  }
+
+  function cogTryPostYT(func) {
+    try {
+      const f = document.getElementById('cogPlayer');
+      f.contentWindow.postMessage(JSON.stringify({event:'command', func: func, args: []}), '*');
+    } catch (e) {}
+  }
+
+  function cogPlay() {
+    if (cogState.playing) return;
+    cogState.playing = true;
+    cogState.startMs = Date.now() - cogState.pausedAt;
+    const btn = document.getElementById('cogPlayBtn');
+    if (btn) btn.textContent = '⏸  Pause';
+    const fl = document.getElementById('cogFrameLabel');
+    if (fl) fl.textContent = '⌬ FishBytes inference · live';
+    cogTryPostYT('playVideo');
+    cogState.timer = setInterval(cogTick, 100);
+    cogTick();
+  }
+
+  function cogPause() {
+    if (!cogState.playing) return;
+    cogState.playing = false;
+    cogState.pausedAt = Date.now() - cogState.startMs;
+    clearInterval(cogState.timer);
+    const btn = document.getElementById('cogPlayBtn');
+    if (btn) btn.textContent = '▶  Resume';
+    const fl = document.getElementById('cogFrameLabel');
+    if (fl) fl.textContent = '⌬ FishBytes inference · paused';
+    cogTryPostYT('pauseVideo');
+  }
+
+  function cogToggle() { cogState.playing ? cogPause() : cogPlay(); }
+
+  function cogReset() {
+    cogPause();
+    cogState.pausedAt = 0;
+    cogState.activeIdx = -1;
+    if (cogState.typeInterval) { clearInterval(cogState.typeInterval); cogState.typeInterval = null; }
+    const btn = document.getElementById('cogPlayBtn');
+    if (btn) btn.textContent = '▶  Run demo';
+    const tl = document.getElementById('cogTickLabel');
+    if (tl) tl.textContent = 't 0.0s';
+    const fl = document.getElementById('cogFrameLabel');
+    if (fl) fl.textContent = '⌬ FishBytes inference · idle';
+    const det = document.getElementById('cogDetections');
+    if (det) det.innerHTML = '<div class="cog-detection-empty">Press play to start the run.</div>';
+    const tel = document.getElementById('cogTelemetry');
+    if (tel) tel.innerHTML = '';
+    const ctx = document.getElementById('cogContextBody');
+    if (ctx) ctx.textContent = '—';
+    const rb = document.getElementById('cogReasoningBody');
+    if (rb) rb.textContent = '—';
+    const cmd = document.getElementById('cogCommand');
+    if (cmd) cmd.innerHTML = '<span class="verb">awaiting</span>standby';
+    const ov = document.getElementById('cogOverlay');
+    if (ov) ov.innerHTML = '';
+    document.querySelectorAll('.cog-tick').forEach(el => el.classList.remove('is-active','is-past'));
+  }
+
+  function cogSeek(idx) {
+    if (idx < 0 || idx >= COG.keyframes.length) return;
+    const kf = COG.keyframes[idx];
+    cogState.pausedAt = kf.t * 1000;
+    cogState.startMs = Date.now() - cogState.pausedAt;
+    if (!cogState.playing) {
+      cogState.playing = true;
+      const btn = document.getElementById('cogPlayBtn');
+      if (btn) btn.textContent = '⏸  Pause';
+      const fl = document.getElementById('cogFrameLabel');
+      if (fl) fl.textContent = '⌬ FishBytes inference · live';
+      cogTryPostYT('playVideo');
+      cogState.timer = setInterval(cogTick, 100);
+    }
+    cogState.activeIdx = -1;  // force re-activation
+    cogTick();
+  }
+
+  function cogTick() {
+    let t = (Date.now() - cogState.startMs) / 1000;
+    if (t >= COG_DUR_S) {
+      // loop
+      cogState.startMs = Date.now();
+      cogState.activeIdx = -1;
+      t = 0;
+    }
+    const tl = document.getElementById('cogTickLabel');
+    if (tl) tl.textContent = 't ' + t.toFixed(1) + 's';
+
+    let idx = -1;
+    for (let i = COG.keyframes.length - 1; i >= 0; i--) {
+      if (t >= COG.keyframes[i].t) { idx = i; break; }
+    }
+    if (idx === cogState.activeIdx || idx < 0) return;
+    cogState.activeIdx = idx;
+    cogActivate(idx);
+  }
+
+  function cogActivate(idx) {
+    const kf = COG.keyframes[idx];
+
+    document.querySelectorAll('.cog-tick').forEach((el, i) => {
+      el.classList.toggle('is-active', i === idx);
+      el.classList.toggle('is-past', i < idx);
+    });
+
+    // Boxes
+    const overlay = document.getElementById('cogOverlay');
+    if (overlay) {
+      overlay.innerHTML = kf.boxes.map(b => {
+        const grp = cogGrp(b.cls);
+        const left = (b.x*100).toFixed(2)+'%';
+        const top  = (b.y*100).toFixed(2)+'%';
+        const w    = (b.w*100).toFixed(2)+'%';
+        const h    = (b.h*100).toFixed(2)+'%';
+        return `<div class="cog-box" data-grp="${grp}" data-cls="${escHtml(b.cls)}" style="left:${left};top:${top};width:${w};height:${h};">
+                  <div class="cog-box-label">${escHtml(b.cls.replace(/_/g,' '))}<span class="conf">${(b.conf*100).toFixed(0)}%</span></div>
+                </div>`;
+      }).join('');
+      requestAnimationFrame(() => overlay.querySelectorAll('.cog-box').forEach(el => el.classList.add('is-on')));
+    }
+
+    // Perception list
+    const det = document.getElementById('cogDetections');
+    if (det) {
+      det.innerHTML = kf.boxes.map(b => `
+        <div class="cog-detection-row">
+          <div class="cog-detection-swatch" style="background:${COG_COLOR[cogGrp(b.cls)]}"></div>
+          <div class="cog-detection-cls">${escHtml(b.cls.replace(/_/g,' '))}</div>
+          <div class="cog-detection-conf">${(b.conf*100).toFixed(0)}%</div>
+        </div>`).join('');
+    }
+
+    // Telemetry
+    const tt = kf.telemetry;
+    const tel = document.getElementById('cogTelemetry');
+    if (tel) {
+      tel.innerHTML =
+        '<span class="tlab">depth</span><span class="tval">'+tt.depth_m.toFixed(1)+' m</span>' +
+        '<span class="tlab">heading</span><span class="tval">'+tt.heading_deg+'°</span>' +
+        '<span class="tlab">altitude</span><span class="tval">'+tt.altitude_m.toFixed(1)+' m</span>' +
+        '<span class="tlab">current</span><span class="tval">'+tt.current_kt.toFixed(1)+' kt</span>' +
+        '<span class="tlab">visibility</span><span class="tval">'+tt.visibility_m+' m</span>' +
+        '<span class="tlab">battery</span><span class="tval">'+tt.battery_pct+'%</span>';
+    }
+    const ctx = document.getElementById('cogContextBody');
+    if (ctx) ctx.textContent = kf.context_summary;
+
+    // Reasoning — type out
+    const rb = document.getElementById('cogReasoningBody');
+    if (rb) cogTypeOut(rb, kf.reasoning);
+
+    // Command
+    const cmd = kf.command;
+    const dotIdx = cmd.indexOf('.');
+    const verb = dotIdx > 0 ? cmd.slice(0, dotIdx).trim() : (cmd.split(' ')[0] || cmd);
+    const rest = dotIdx > 0 ? cmd.slice(dotIdx + 1).trim() : cmd.slice(verb.length).trim();
+    const cmdEl = document.getElementById('cogCommand');
+    if (cmdEl) cmdEl.innerHTML = '<span class="verb">'+escHtml(verb)+'</span>'+escHtml(rest);
+
+    // Card flash
+    ['cogPerceptionCard','cogContextCard','cogReasoningCard','cogCommandCard'].forEach((id, i) => {
+      setTimeout(() => {
+        const c = document.getElementById(id);
+        if (!c) return;
+        c.classList.add('is-fresh');
+        setTimeout(() => c.classList.remove('is-fresh'), 600);
+      }, i * 130);
+    });
+  }
+
+  function cogTypeOut(el, text) {
+    if (cogState.typeInterval) clearInterval(cogState.typeInterval);
+    el.textContent = '';
+    let i = 0;
+    cogState.typeInterval = setInterval(() => {
+      i += 2;
+      if (i >= text.length) {
+        el.textContent = text;
+        clearInterval(cogState.typeInterval);
+        cogState.typeInterval = null;
+        return;
+      }
+      el.innerHTML = escHtml(text.slice(0, i)) + '<span class="typed-cursor">&nbsp;</span>';
+    }, 12);
+  }
+
+  /* ══════════════════════════════════════════
+     WAITLIST
+     Paste your Google Apps Script /exec URL into WAITLIST_ENDPOINT below.
+     Until set, submissions are captured to localStorage (visible in console).
+  ══════════════════════════════════════════ */
+  const WAITLIST_ENDPOINT = '';  // <-- replace with your Apps Script /exec URL
+
+  function initWaitlist() {
+    const form = document.getElementById('waitlistForm');
+    if (!form) return;
+    const msg = document.getElementById('wlMsg');
+    const submit = document.getElementById('wlSubmit');
+    const success = document.getElementById('wlSuccess');
+
+    if (localStorage.getItem('fishbytes_waitlist_done') === '1') {
+      form.style.display = 'none';
+      success.classList.add('is-on');
+      return;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.textContent = ' ';
+      msg.classList.remove('ok','err');
+
+      const payload = {
+        email:   form.email.value.trim(),
+        name:    form.name.value.trim(),
+        role:    form.role.value,
+        useCase: form.useCase.value.trim(),
+        ts:      new Date().toISOString(),
+        page:    location.href,
+        ua:      navigator.userAgent.slice(0, 200)
+      };
+      if (!payload.email || !payload.name || !payload.role) {
+        msg.textContent = 'Email, name, and role are required.';
+        msg.classList.add('err'); return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+        msg.textContent = 'Please enter a valid email address.';
+        msg.classList.add('err'); return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = 'Submitting…';
+
+      try {
+        if (!WAITLIST_ENDPOINT) {
+          const local = JSON.parse(localStorage.getItem('fishbytes_waitlist_pending') || '[]');
+          local.push(payload);
+          localStorage.setItem('fishbytes_waitlist_pending', JSON.stringify(local));
+          console.log('[FishBytes waitlist] No endpoint set — captured locally:', payload);
+          finishWaitlist();
+          return;
+        }
+        await fetch(WAITLIST_ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',  // Apps Script needs no-cors to accept the POST cleanly
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        finishWaitlist();
+      } catch (err) {
+        console.error('[waitlist] error', err);
+        // Apps Script with no-cors returns an opaque response; treat reachable endpoint as success
+        if (WAITLIST_ENDPOINT) { finishWaitlist(); return; }
+        msg.textContent = 'Something went wrong. Try again, or email team@fishbytes.com.';
+        msg.classList.add('err');
+        submit.disabled = false;
+        submit.textContent = 'Join waitlist →';
+      }
+    });
+
+    function finishWaitlist() {
+      localStorage.setItem('fishbytes_waitlist_done', '1');
+      form.style.display = 'none';
+      success.classList.add('is-on');
+      success.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+  }
+
+  /* ── Try to load a freshly-baked version of the data ──
+     If baked.json is reachable (i.e. you re-ran bake_reasoning.py),
+     swap it in over the inline fallback. ────────────────── */
+  async function cogTryLiveBake() {
+    try {
+      const resp = await fetch('baked.json', {cache: 'no-store'});
+      if (!resp.ok) return;
+      const live = await resp.json();
+      if (live && Array.isArray(live.keyframes) && live.keyframes.length) {
+        COG.keyframes = live.keyframes;
+        console.log('[FishBytes] loaded live baked.json with', live.keyframes.length, 'keyframes (baked_with:', live.baked_with || 'unknown', ')');
+      }
+    } catch (e) {
+      // Local file:// previews can't fetch — just use the inline fallback silently
+    }
+  }
+
+  /* ── Init both on DOM ready ──────────────────────────── */
+  document.addEventListener('DOMContentLoaded', async () => {
+    await cogTryLiveBake();
+    cogRenderTicks();
+    const playBtn = document.getElementById('cogPlayBtn');
+    const resetBtn = document.getElementById('cogResetBtn');
+    if (playBtn)  playBtn.addEventListener('click', cogToggle);
+    if (resetBtn) resetBtn.addEventListener('click', cogReset);
+
+    // Auto-start when scrolled into view (one-shot)
+    const stage = document.getElementById('cogStage');
+    if (stage && 'IntersectionObserver' in window) {
+      let armed = false;
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !armed) {
+            armed = true;
+            setTimeout(cogPlay, 700);
+          }
+        });
+      }, { threshold: 0.45 });
+      io.observe(stage);
+    }
+
+    initWaitlist();
+  });
 </script>
 </body>
 </html>

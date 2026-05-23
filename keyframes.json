@@ -1,0 +1,103 @@
+{
+  "scenario": "oilrig",
+  "video_id": "XxNY2eAp1Qw",
+  "mission": "Subsea inspection of offshore platform jacket structure. Survey corrosion, marine growth, anode depletion. Maintain safe standoff. Flag anomalies.",
+  "platform_telemetry": {
+    "asset": "Gulf of Mexico jacket platform · 42m water depth",
+    "rov_class": "Work-class ROV · 5DOF · forward-facing HD",
+    "mission_id": "INSP-2026-051"
+  },
+  "keyframes": [
+    {
+      "t": 2,
+      "label": "Approach",
+      "boxes": [
+        {"cls": "jacket_leg",       "x": 0.34, "y": 0.18, "w": 0.18, "h": 0.78, "conf": 0.94},
+        {"cls": "cross_brace",      "x": 0.10, "y": 0.40, "w": 0.62, "h": 0.10, "conf": 0.87},
+        {"cls": "sediment_cloud",   "x": 0.62, "y": 0.72, "w": 0.30, "h": 0.22, "conf": 0.66}
+      ],
+      "telemetry": {"depth_m": 38.2, "heading_deg": 142, "altitude_m": 3.8, "current_kt": 0.4, "visibility_m": 6, "battery_pct": 87, "thrust_pct": 22},
+      "context_summary": "Primary jacket leg directly ahead (~3.5m standoff). Cross-brace runs mid-frame, intersecting leg. Light sediment plume lower-right — ROV downwash from prior turn. Approach trajectory nominal."
+    },
+    {
+      "t": 8,
+      "label": "Marine growth survey",
+      "boxes": [
+        {"cls": "jacket_leg",        "x": 0.32, "y": 0.15, "w": 0.22, "h": 0.80, "conf": 0.95},
+        {"cls": "barnacle_growth",   "x": 0.36, "y": 0.30, "w": 0.14, "h": 0.18, "conf": 0.82},
+        {"cls": "barnacle_growth",   "x": 0.38, "y": 0.58, "w": 0.13, "h": 0.20, "conf": 0.79},
+        {"cls": "macroalgae",        "x": 0.20, "y": 0.42, "w": 0.10, "h": 0.14, "conf": 0.71}
+      ],
+      "telemetry": {"depth_m": 38.5, "heading_deg": 142, "altitude_m": 3.1, "current_kt": 0.4, "visibility_m": 6, "battery_pct": 86, "thrust_pct": 18},
+      "context_summary": "Heavy biofouling on leg face: two dense barnacle colonies covering ~30% of inspectable surface. Macroalgae cluster on adjacent brace. Standoff stable at 3m."
+    },
+    {
+      "t": 15,
+      "label": "Anode inspection",
+      "boxes": [
+        {"cls": "jacket_leg",         "x": 0.30, "y": 0.10, "w": 0.20, "h": 0.85, "conf": 0.94},
+        {"cls": "zinc_anode",         "x": 0.34, "y": 0.46, "w": 0.10, "h": 0.20, "conf": 0.89},
+        {"cls": "anode_depletion",    "x": 0.34, "y": 0.46, "w": 0.10, "h": 0.20, "conf": 0.77},
+        {"cls": "weld_seam",          "x": 0.30, "y": 0.62, "w": 0.20, "h": 0.04, "conf": 0.74}
+      ],
+      "telemetry": {"depth_m": 39.0, "heading_deg": 138, "altitude_m": 2.4, "current_kt": 0.5, "visibility_m": 6, "battery_pct": 85, "thrust_pct": 28},
+      "context_summary": "Sacrificial zinc anode at mid-leg. Visible wastage estimate >40% — material loss extends along bottom-third of anode body. Adjacent weld seam intact. Photogrammetry capture recommended."
+    },
+    {
+      "t": 22,
+      "label": "Brace joint corrosion",
+      "boxes": [
+        {"cls": "cross_brace",        "x": 0.08, "y": 0.30, "w": 0.70, "h": 0.18, "conf": 0.92},
+        {"cls": "brace_joint",        "x": 0.46, "y": 0.32, "w": 0.18, "h": 0.18, "conf": 0.88},
+        {"cls": "corrosion_patch",    "x": 0.48, "y": 0.34, "w": 0.14, "h": 0.12, "conf": 0.83},
+        {"cls": "scale_pitting",      "x": 0.50, "y": 0.40, "w": 0.08, "h": 0.05, "conf": 0.69}
+      ],
+      "telemetry": {"depth_m": 39.4, "heading_deg": 122, "altitude_m": 1.8, "current_kt": 0.5, "visibility_m": 5, "battery_pct": 83, "thrust_pct": 31},
+      "context_summary": "Active corrosion at brace joint B-7. Localized scale pitting visible on lower flange face. Wall thickness measurement strongly indicated. Standoff tight (1.8m) — current pushing ROV toward structure."
+    },
+    {
+      "t": 30,
+      "label": "Hold and document",
+      "boxes": [
+        {"cls": "brace_joint",        "x": 0.32, "y": 0.20, "w": 0.36, "h": 0.50, "conf": 0.91},
+        {"cls": "corrosion_patch",    "x": 0.38, "y": 0.28, "w": 0.24, "h": 0.18, "conf": 0.86},
+        {"cls": "scale_pitting",      "x": 0.42, "y": 0.36, "w": 0.16, "h": 0.10, "conf": 0.74}
+      ],
+      "telemetry": {"depth_m": 39.4, "heading_deg": 122, "altitude_m": 1.8, "current_kt": 0.5, "visibility_m": 5, "battery_pct": 82, "thrust_pct": 35},
+      "context_summary": "Station-keeping at brace joint B-7 for high-resolution photogrammetry capture. Thrust elevated to 35% to counter current. Corrosion patch fills upper frame. Two 4K stills queued."
+    },
+    {
+      "t": 38,
+      "label": "Mooring chain crossing",
+      "boxes": [
+        {"cls": "mooring_chain",      "x": 0.10, "y": 0.20, "w": 0.30, "h": 0.62, "conf": 0.93},
+        {"cls": "chain_link_wear",    "x": 0.18, "y": 0.42, "w": 0.12, "h": 0.10, "conf": 0.76},
+        {"cls": "seabed_silt",        "x": 0.05, "y": 0.78, "w": 0.85, "h": 0.20, "conf": 0.81}
+      ],
+      "telemetry": {"depth_m": 40.8, "heading_deg": 98, "altitude_m": 2.6, "current_kt": 0.5, "visibility_m": 4, "battery_pct": 79, "thrust_pct": 24},
+      "context_summary": "Mooring chain transit at -40.8m. Link wear pattern visible mid-chain — surface abrasion consistent with seabed contact during slack tide. Seabed silt drifting through lower frame, visibility degrading to 4m."
+    },
+    {
+      "t": 46,
+      "label": "Riser approach",
+      "boxes": [
+        {"cls": "drill_riser",        "x": 0.40, "y": 0.05, "w": 0.20, "h": 0.92, "conf": 0.96},
+        {"cls": "thermal_coating",    "x": 0.40, "y": 0.20, "w": 0.20, "h": 0.50, "conf": 0.85},
+        {"cls": "coating_defect",     "x": 0.46, "y": 0.40, "w": 0.06, "h": 0.10, "conf": 0.71}
+      ],
+      "telemetry": {"depth_m": 41.0, "heading_deg": 75, "altitude_m": 3.0, "current_kt": 0.4, "visibility_m": 5, "battery_pct": 76, "thrust_pct": 20},
+      "context_summary": "Drill riser pipeline centered in frame. Thermal insulation coating intact along majority of inspected length. Localized coating defect at mid-section — possible holiday, ~6cm extent. Cathodic potential reading recommended."
+    },
+    {
+      "t": 55,
+      "label": "Egress",
+      "boxes": [
+        {"cls": "jacket_leg",         "x": 0.06, "y": 0.20, "w": 0.14, "h": 0.74, "conf": 0.88},
+        {"cls": "drill_riser",        "x": 0.78, "y": 0.10, "w": 0.14, "h": 0.86, "conf": 0.90},
+        {"cls": "open_water",         "x": 0.22, "y": 0.30, "w": 0.54, "h": 0.50, "conf": 0.95}
+      ],
+      "telemetry": {"depth_m": 38.0, "heading_deg": 45, "altitude_m": 4.8, "current_kt": 0.3, "visibility_m": 6, "battery_pct": 73, "thrust_pct": 16},
+      "context_summary": "Clearing structure on egress vector. Jacket leg and riser bracket the frame. Mid-frame open water — safe ascent corridor. Mission timeline 73% remaining. Three flagged anomalies queued for surface review."
+    }
+  ]
+}
